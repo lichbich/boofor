@@ -1,0 +1,33 @@
+/* Tiptap Placeholder Styling */
+.tiptap p.is-editor-empty:first-child::before {
+  color: #9ca3af; /* Tailwind gray-400 */
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Custom styles for Tiptap tables */
+.prose table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.prose td,
+.prose th {
+  min-width: 1em;
+  border: 1px solid var(--color-gray-200);
+  padding: 6px 8px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.prose th {
+  font-weight: bold;
+  text-align: left;
+  background-color: var(--color-gray-50);
+}

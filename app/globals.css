@@ -1,0 +1,218 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@plugin "@tailwindcss/typography";
+
+@import "../styles/editor.css";
+@import "../styles/tabs.css";
+@import "../styles/modal.css";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --color-white-custom: #ffffff;
+  --color-gray-50-custom: #f9fafb;
+  --color-gray-100-custom: #f3f4f6;
+  --color-gray-150-custom: #eef1f6;
+  --color-gray-200-custom: #e5e7eb;
+  --color-gray-250-custom: #d1d5db;
+  --color-gray-300-custom: #cbd5e1;
+  --color-gray-350-custom: #c0c4cc;
+  --color-gray-400-custom: #9ca3af;
+  --color-gray-500-custom: #6b7280;
+  --color-gray-600-custom: #4b5563;
+  --color-gray-700-custom: #374151;
+  --color-gray-800-custom: #1f2937;
+  --color-gray-900-custom: #111827;
+}
+
+.dark {
+  --background: #0d1117;
+  --foreground: #f0f6fc;
+  --color-white-custom: #161b22;       /* card background */
+  --color-gray-50-custom: #0d1117;      /* page background / input bg */
+  --color-gray-100-custom: #21262d;     /* card border */
+  --color-gray-150-custom: #1f242c;     /* inactive tab background */
+  --color-gray-200-custom: #30363d;     /* border-gray-200 */
+  --color-gray-250-custom: #30363d;     /* border-gray-250 */
+  --color-gray-300-custom: #484f58;     /* scrollbar thumb */
+  --color-gray-350-custom: #484f58;     /* custom hover border */
+  --color-gray-400-custom: #8b949e;     /* placeholder / icons */
+  --color-gray-500-custom: #8b949e;     /* description / small metadata text */
+  --color-gray-600-custom: #b1bac4;     /* regular text */
+  --color-gray-700-custom: #c9d1d9;     /* medium-dark text */
+  --color-gray-800-custom: #c9d1d9;     /* titles / bold text */
+  --color-gray-900-custom: #f0f6fc;     /* headings / main text */
+}
+
+@theme {
+  --color-white: var(--color-white-custom);
+  --color-gray-50: var(--color-gray-50-custom);
+  --color-gray-100: var(--color-gray-100-custom);
+  --color-gray-150: var(--color-gray-150-custom);
+  --color-gray-200: var(--color-gray-200-custom);
+  --color-gray-250: var(--color-gray-250-custom);
+  --color-gray-300: var(--color-gray-300-custom);
+  --color-gray-350: var(--color-gray-350-custom);
+  --color-gray-400: var(--color-gray-400-custom);
+  --color-gray-500: var(--color-gray-500-custom);
+  --color-gray-600: var(--color-gray-600-custom);
+  --color-gray-700: var(--color-gray-700-custom);
+  --color-gray-800: var(--color-gray-800-custom);
+  --color-gray-900: var(--color-gray-900-custom);
+  
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbars globally for Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-gray-300);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-gray-400);
+}
+
+/* Custom scrollbar globally for Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+/* 
+  Fix Dark Mode Text visibility in TipTap Editor 
+  Overrides inline text color styles (e.g. from copy-pasting from ChatGPT)
+*/
+.dark .prose p,
+.dark .prose span,
+.dark .prose strong,
+.dark .prose b,
+.dark .prose em,
+.dark .prose i,
+.dark .prose a,
+.dark .prose u,
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose h5,
+.dark .prose h6,
+.dark .prose li,
+.dark .prose td,
+.dark .prose th {
+  color: var(--color-gray-900) !important;
+}
+
+
+/* 
+  Fix text-white color issue in dark mode for buttons and cards with dark backgrounds.
+  Uses high specificity class selectors (.bg-xxx.text-white) to win over Tailwind's text-white utility.
+*/
+.bg-indigo-600,
+.bg-indigo-700,
+.bg-blue-600,
+.bg-blue-700,
+.bg-red-600,
+.bg-red-700,
+.bg-violet-600,
+.bg-violet-700,
+.bg-emerald-600,
+.bg-emerald-700,
+.bg-indigo-950,
+.bg-indigo-600.text-white,
+.bg-indigo-700.text-white,
+.bg-blue-600.text-white,
+.bg-blue-700.text-white,
+.bg-red-600.text-white,
+.bg-red-700.text-white,
+.bg-violet-600.text-white,
+.bg-violet-700.text-white,
+.bg-emerald-600.text-white,
+.bg-emerald-700.text-white,
+.bg-indigo-950.text-white,
+.tab-button.bg-indigo-600.text-white {
+  color: #ffffff !important;
+}
+
+/* Ensure inner elements and icons inherit the forced white color, excluding elements with bg-white background and their children */
+.bg-indigo-600 *:not(.bg-white):not(.bg-white *),
+.bg-indigo-700 *:not(.bg-white):not(.bg-white *),
+.bg-blue-600 *:not(.bg-white):not(.bg-white *),
+.bg-blue-700 *:not(.bg-white):not(.bg-white *),
+.bg-red-600 *:not(.bg-white):not(.bg-white *),
+.bg-red-700 *:not(.bg-white):not(.bg-white *),
+.bg-violet-600 *:not(.bg-white):not(.bg-white *),
+.bg-violet-700 *:not(.bg-white):not(.bg-white *),
+.bg-emerald-600 *:not(.bg-white):not(.bg-white *),
+.bg-emerald-700 *:not(.bg-white):not(.bg-white *),
+.bg-indigo-950 *:not(.bg-white):not(.bg-white *),
+.tab-button.bg-indigo-600.text-white *:not(.bg-white):not(.bg-white *) {
+  color: inherit !important;
+}
+
+/* Force gray-700 and gray-600 to be highly readable in dark mode */
+.dark .text-gray-700 {
+  color: var(--color-gray-700-custom, #c9d1d9) !important;
+}
+
+.dark .text-gray-600 {
+  color: var(--color-gray-600-custom, #b1bac4) !important;
+}
+
+/* Ensure icons/SVGs in gray-700 and gray-600 elements also color properly */
+.dark .text-gray-700 svg,
+.dark .text-gray-700 stroke,
+.dark .text-gray-600 svg,
+.dark .text-gray-600 stroke {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* Explicit style for the reconciler copy button, immune to all dark mode overrides */
+.reconciler-copy-btn {
+  background-color: #ffffff !important;
+  color: #1e1b4b !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.reconciler-copy-btn:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.reconciler-copy-btn *,
+.reconciler-copy-btn svg,
+.reconciler-copy-btn span {
+  color: #1e1b4b !important;
+  stroke: #1e1b4b !important;
+}
+
+/* Custom Active Author Tab styling for Dark Mode to ensure amber-500 color */
+.dark .author-tab-active {
+  color: #f59e0b !important;
+}
+
+.dark .author-tab-active svg {
+  color: #f59e0b !important;
+  stroke: #f59e0b !important;
+}

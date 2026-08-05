@@ -1,0 +1,32 @@
+/* CSS classes for popup/modal transition and origin-based scales */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  transition: opacity 300ms ease-out;
+}
+
+.modal-overlay-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-container {
+  background-color: var(--color-white);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 28rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms ease-out;
+}
