@@ -11,7 +11,7 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { Markdown } from "tiptap-markdown";
 import { copyToClipboard } from "@/utils/clipboard";
 import { cleanAndFormatHtml, getProcessedHtml } from "@/utils/formatter";
-import { exportToWord, exportToPDF, exportToEPUB } from "@/services/exportService";
+import { exportToWord, exportToPDF, exportToEPUB, generateEpubBlob } from "@/services/exportService";
 import { dbGet, dbSet } from "@/utils/db";
 import { saveAs } from "file-saver";
 
@@ -991,22 +991,7 @@ export const useBookState = () => {
         const processedHtml = getProcessedHtml(rawContent, title, "", author);
         const coverBase64 = bookCovers[title] || undefined;
 
-        const response = await fetch("/api/export-epub", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            html: processedHtml,
-            title: title,
-            author: author,
-            cover: coverBase64,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Lỗi khi xuất sách: ${title}`);
-        }
-
-        const epubBlob = await response.blob();
+        const epubBlob = await generateEpubBlob(processedHtml, title, author, coverBase64);
         
         const indexStr = String(i + 1).padStart(2, "0");
         const filename = `${indexStr}. ${title}.epub`;

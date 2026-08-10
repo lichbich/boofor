@@ -29,7 +29,7 @@ async function getAuthenticatedUser(req: Request): Promise<string | null> {
   }
 }
 
-// 1. GET: Fetch notifications for the authenticated user
+// 1. GET: Fetch notifications for the authenticated user and auto-purge stale items (>14 days)
 export async function GET(req: Request) {
   try {
     const username = await getAuthenticatedUser(req);
@@ -40,9 +40,19 @@ export async function GET(req: Request) {
     const notificationsSnapshot = await adminDb.ref(`boofor/notifications/${username}`).once("value");
     const notificationsData = notificationsSnapshot.val() || {};
 
+    const FourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
     const notificationsList = [];
+
     for (const key in notificationsData) {
-      notificationsList.push(notificationsData[key]);
+      const item = notificationsData[key];
+      const createdMs = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+      if (createdMs && nowMs - createdMs > FourteenDaysMs) {
+        // Auto-purge stale notification older than 14 days
+        adminDb.ref(`boofor/notifications/${username}/${key}`).remove().catch(() => {});
+      } else {
+        notificationsList.push(item);
+      }
     }
 
     // Sort by createdAt (newest first)
@@ -60,7 +70,7 @@ export async function GET(req: Request) {
   }
 }
 
-// 2. DELETE: Remove a notification
+// 2. DELETE: Remove a single notification or clear all notifications
 export async function DELETE(req: Request) {
   try {
     const username = await getAuthenticatedUser(req);
@@ -68,7 +78,14 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Chưa đăng nhập hoặc phiên làm việc hết hạn" }, { status: 401 });
     }
 
-    const { notificationId } = await req.json();
+    const body = await req.json();
+    const { notificationId, clearAll } = body;
+
+    if (clearAll) {
+      await adminDb.ref(`boofor/notifications/${username}`).remove();
+      return NextResponse.json({ success: true, message: "Đã xóa toàn bộ thông báo" });
+    }
+
     if (!notificationId) {
       return NextResponse.json({ error: "Thiếu ID thông báo" }, { status: 400 });
     }

@@ -224,6 +224,25 @@ export default function Home() {
     }
   };
 
+  const handleClearAllNotifications = async () => {
+    if (!window.confirm("Bạn có chắc muốn xóa tất cả thông báo phản hồi?")) return;
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("boofor_session_id") : null;
+      await fetch("/api/notifications", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ clearAll: true }),
+      });
+
+      fetchNotifications();
+    } catch (err) {
+      console.error("Clear all notifications error:", err);
+    }
+  };
+
   if (!state.isMounted || isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#090d16] text-white">
@@ -432,8 +451,16 @@ export default function Home() {
                         {/* Section 2: Feedback response notifications */}
                         {filteredNotifications.length > 0 && (
                           <div className="py-2">
-                            <div className="px-4 py-1 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
-                              Phản hồi chia sẻ ({filteredNotifications.length})
+                            <div className="px-4 py-1 flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
+                                Phản hồi chia sẻ ({filteredNotifications.length})
+                              </span>
+                              <button
+                                onClick={handleClearAllNotifications}
+                                className="text-[10px] text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                              >
+                                Xóa tất cả
+                              </button>
                             </div>
                             {filteredNotifications.map((notif) => (
                               <div key={notif.id} className="px-4 py-2 hover:bg-gray-50/30 dark:hover:bg-[#0d1117]/30 transition-colors flex items-start justify-between gap-2">

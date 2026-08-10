@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { X, Upload, Check, Loader2, AlertCircle, FileImage, Sparkles, RefreshCw, Copy, FileText } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { generateDocxBlob } from "@/services/exportService";
 
 interface EpubCoverReplacerModalProps {
   isOpen: boolean;
@@ -282,18 +283,7 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
         </html>
       `;
 
-      // Call API export-docx
-      const response = await fetch("/api/export-docx", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: finalHtml }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Lỗi kết nối API xuất Docx");
-      }
-
-      const blob = await response.blob();
+      const blob = await generateDocxBlob(finalHtml);
       saveAs(blob, "Tong_Hop_Introduction.docx");
       
       alert(`Đã xuất thành công Introduction của ${validMatches.length} cuốn sách ra file Docx!`);

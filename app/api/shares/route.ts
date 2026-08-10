@@ -163,21 +163,34 @@ export async function GET(req: Request) {
       return new Date(b.sharedAt).getTime() - new Date(a.sharedAt).getTime();
     });
 
-    // Fetch sent shares history (lightweight metadata)
+    // Fetch sent shares history (lightweight metadata with auto-purge for stale records)
     const sentSnapshot = await adminDb.ref(`boofor/sent_shares/${username}`).once("value");
     const sentData = sentSnapshot.val() || {};
 
+    const SevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const ThirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
     const sentList = [];
+
     for (const key in sentData) {
       const item = sentData[key];
-      sentList.push({
-        id: item.id,
-        recipient: item.recipient,
-        authorName: item.authorName,
-        status: item.status || "pending",
-        sharedAt: item.sharedAt,
-        updatedAt: item.updatedAt,
-      });
+      const sharedMs = item.sharedAt ? new Date(item.sharedAt).getTime() : 0;
+      const isOld = sharedMs && (nowMs - sharedMs > ThirtyDaysMs);
+      const isCompletedOld = item.status && item.status !== "pending" && sharedMs && (nowMs - sharedMs > SevenDaysMs);
+
+      if (isOld || isCompletedOld) {
+        // Auto-purge stale sent share history
+        adminDb.ref(`boofor/sent_shares/${username}/${key}`).remove().catch(() => {});
+      } else {
+        sentList.push({
+          id: item.id,
+          recipient: item.recipient,
+          authorName: item.authorName,
+          status: item.status || "pending",
+          sharedAt: item.sharedAt,
+          updatedAt: item.updatedAt,
+        });
+      }
     }
 
     // Sort by sharedAt (newest first)
