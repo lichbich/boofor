@@ -120,7 +120,7 @@ export async function POST(req: Request) {
   }
 }
 
-// 2. GET: List all pending shares and sent shares history for the authenticated user
+// 2. GET: List all pending shares (lightweight) or get detail of a single share record
 export async function GET(req: Request) {
   try {
     const username = await getAuthenticatedUser(req);
@@ -128,12 +128,34 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Chưa đăng nhập hoặc phiên làm việc hết hạn" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const shareId = searchParams.get("shareId");
+
+    // Detail mode: Return full data for a single share record when importing
+    if (shareId) {
+      const shareSnapshot = await adminDb.ref(`boofor/shares/${username}/${shareId}`).once("value");
+      if (!shareSnapshot.exists()) {
+        return NextResponse.json({ error: "Bản ghi chia sẻ không tồn tại hoặc đã bị xóa" }, { status: 404 });
+      }
+      return NextResponse.json({
+        success: true,
+        share: shareSnapshot.val(),
+      });
+    }
+
+    // List mode: Return lightweight metadata list to minimize Fast Origin Transfer bandwidth
     const sharesSnapshot = await adminDb.ref(`boofor/shares/${username}`).once("value");
     const sharesData = sharesSnapshot.val() || {};
 
     const sharesList = [];
     for (const key in sharesData) {
-      sharesList.push(sharesData[key]);
+      const item = sharesData[key];
+      sharesList.push({
+        id: item.id,
+        sender: item.sender,
+        authorName: item.authorName,
+        sharedAt: item.sharedAt,
+      });
     }
 
     // Sort by sharedAt (newest first)
@@ -141,29 +163,21 @@ export async function GET(req: Request) {
       return new Date(b.sharedAt).getTime() - new Date(a.sharedAt).getTime();
     });
 
-    // Fetch sent shares history
+    // Fetch sent shares history (lightweight metadata)
     const sentSnapshot = await adminDb.ref(`boofor/sent_shares/${username}`).once("value");
     const sentData = sentSnapshot.val() || {};
 
     const sentList = [];
     for (const key in sentData) {
       const item = sentData[key];
-      if (!item.bookListText && item.status === "pending" && item.recipient) {
-        try {
-          const detailSnapshot = await adminDb.ref(`boofor/shares/${item.recipient}/${item.id}`).once("value");
-          if (detailSnapshot.exists()) {
-            const detail = detailSnapshot.val();
-            item.bookListText = detail.bookListText || "";
-            item.bookIntroMap = detail.bookIntroMap || {};
-            item.genresText = detail.genresText || "";
-            item.chapterKeywords = detail.chapterKeywords || "";
-            item.customBlockPhrases = detail.customBlockPhrases || "";
-          }
-        } catch (err) {
-          console.error("Failed to fetch pending share details for fallback:", err);
-        }
-      }
-      sentList.push(item);
+      sentList.push({
+        id: item.id,
+        recipient: item.recipient,
+        authorName: item.authorName,
+        status: item.status || "pending",
+        sharedAt: item.sharedAt,
+        updatedAt: item.updatedAt,
+      });
     }
 
     // Sort by sharedAt (newest first)

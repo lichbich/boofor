@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA0bb9O3EJt6cOfC2P8PbkIxBlJF-erg7I",
@@ -14,6 +15,7 @@ const firebaseConfig = {
 
 // Initialize Firebase client-side safely
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+export const rtdb = getDatabase(app);
 
 export const getClientAnalytics = async () => {
   if (typeof window !== "undefined" && await isSupported()) {

@@ -15,6 +15,8 @@ import { ManageRoles } from "@/components/admin/ManageRoles";
 import { ShareModal } from "@/components/common/ShareModal";
 import { BulkImportModal } from "@/components/common/BulkImportModal";
 import { ViewSharedModal } from "@/components/common/ViewSharedModal";
+import { ref, onValue } from "firebase/database";
+import { rtdb } from "@/services/firebaseClient";
 
 export default function Home() {
   const state = useBookState();
@@ -72,17 +74,43 @@ export default function Home() {
     }
   }, []);
 
+  // Firebase Realtime Client SDK: Instant live updates directly from Firebase DB (0 Vercel Origin Transfer)
   useEffect(() => {
-    if (user) {
-      fetchSharedAuthors();
-      fetchNotifications();
-      const interval = setInterval(() => {
-        fetchSharedAuthors();
-        fetchNotifications();
-      }, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [user, fetchSharedAuthors, fetchNotifications]);
+    if (!user?.username) return;
+
+    const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    if (isLocal) return;
+
+    const sharesRef = ref(rtdb, `boofor/shares/${user.username}`);
+    const unsubscribeShares = onValue(sharesRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const sharesList = Object.values(data);
+      sharesList.sort((a: any, b: any) => new Date(b.sharedAt || 0).getTime() - new Date(a.sharedAt || 0).getTime());
+      setSharedAuthors(sharesList);
+    });
+
+    const sentRef = ref(rtdb, `boofor/sent_shares/${user.username}`);
+    const unsubscribeSent = onValue(sentRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const sentList = Object.values(data);
+      sentList.sort((a: any, b: any) => new Date(b.sharedAt || 0).getTime() - new Date(a.sharedAt || 0).getTime());
+      setSentShares(sentList);
+    });
+
+    const notifRef = ref(rtdb, `boofor/notifications/${user.username}`);
+    const unsubscribeNotif = onValue(notifRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const notifList = Object.values(data);
+      notifList.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setNotifications(notifList);
+    });
+
+    return () => {
+      unsubscribeShares();
+      unsubscribeSent();
+      unsubscribeNotif();
+    };
+  }, [user?.username]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -115,16 +143,27 @@ export default function Home() {
 
   const handleImportShare = async (share: any) => {
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("boofor_session_id") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      // Fetch full share detail on demand before importing
+      const detailRes = await fetch(`/api/shares?shareId=${share.id}`, { headers });
+      if (!detailRes.ok) {
+        throw new Error("Không thể tải thông tin chi tiết tác giả.");
+      }
+      const detailData = await detailRes.json();
+      const fullShare = detailData.share || share;
+
       state.importSharedAuthor({
-        authorName: share.authorName,
-        bookListText: share.bookListText,
-        bookIntroMap: share.bookIntroMap,
-        genresText: share.genresText,
-        chapterKeywords: share.chapterKeywords,
-        customBlockPhrases: share.customBlockPhrases,
+        authorName: fullShare.authorName,
+        bookListText: fullShare.bookListText,
+        bookIntroMap: fullShare.bookIntroMap,
+        genresText: fullShare.genresText,
+        chapterKeywords: fullShare.chapterKeywords,
+        customBlockPhrases: fullShare.customBlockPhrases,
       });
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("boofor_session_id") : null;
       await fetch("/api/shares", {
         method: "DELETE",
         headers: {
@@ -137,7 +176,7 @@ export default function Home() {
       fetchSharedAuthors();
       fetchNotifications();
       setIsInboxOpen(false);
-      alert(`Đã nhận thành công tác giả "${share.authorName}" vào Workspace của bạn.`);
+      alert(`Đã nhận thành công tác giả "${fullShare.authorName}" vào Workspace của bạn.`);
     } catch (err) {
       console.error("Import error:", err);
       alert("Đã xảy ra lỗi khi nhận tác giả.");
@@ -297,8 +336,14 @@ export default function Home() {
             <div className="relative" ref={inboxRef}>
               <button
                 onClick={() => {
-                  setIsInboxOpen(!isInboxOpen);
-                  if (isInboxOpen) setNotifSearchQuery("");
+                  const nextOpen = !isInboxOpen;
+                  setIsInboxOpen(nextOpen);
+                  if (nextOpen) {
+                    fetchSharedAuthors();
+                    fetchNotifications();
+                  } else {
+                    setNotifSearchQuery("");
+                  }
                 }}
                 className="p-2 border border-gray-250 text-gray-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-gray-50 dark:hover:bg-[#1f2937] transition-all cursor-pointer relative flex items-center justify-center"
                 title="Tác giả được chia sẻ"
