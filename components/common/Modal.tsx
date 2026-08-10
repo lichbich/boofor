@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { X, List, Download, Loader2, CheckSquare2, Square, ChevronDown } from "lucide-react";
 import { saveAs } from "file-saver";
 import { getProcessedHtml } from "@/utils/formatter";
-import { generateDocxBlob, generateEpubBlob } from "@/services/exportService";
 
 interface ModalProps {
   isOpen: boolean;
@@ -138,7 +137,13 @@ export const Modal: React.FC<ModalProps> = ({
         const fileTitle = chapterTitle.replace(/[\\/*?:"<>|]/g, "_").trim();
 
         if (exportFormat === "docx") {
-          const docxBlob = await generateDocxBlob(processedHtml);
+          const response = await fetch("/api/export-docx", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ html: processedHtml }),
+          });
+          if (!response.ok) throw new Error(`Lỗi xuất Word: ${chapterTitle}`);
+          const docxBlob = await response.blob();
           
           if (selectedChs.length === 1) {
             saveAs(docxBlob, `${fileTitle}.docx`);
@@ -147,7 +152,13 @@ export const Modal: React.FC<ModalProps> = ({
           }
         } 
         else if (exportFormat === "epub") {
-          const epubBlob = await generateEpubBlob(processedHtml, fileTitle, author);
+          const response = await fetch("/api/export-epub", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ html: processedHtml, title: fileTitle, author }),
+          });
+          if (!response.ok) throw new Error(`Lỗi xuất EPUB: ${chapterTitle}`);
+          const epubBlob = await response.blob();
 
           if (selectedChs.length === 1) {
             saveAs(epubBlob, `${fileTitle}.epub`);
