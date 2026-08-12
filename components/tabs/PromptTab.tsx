@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Wand2, BookOpen, Check, Copy, ChevronDown, Image as ImageIcon, FileSpreadsheet, Tag, Edit3, Upload, Trash2 } from "lucide-react";
+import { Wand2, BookOpen, Check, Copy, ChevronDown, Image as ImageIcon, FileSpreadsheet, Tag, Edit3, Upload, Trash2, Eye, X } from "lucide-react";
 import { SheetPasteModal } from "../prompt/SheetPasteModal";
 
 interface Book {
@@ -93,6 +93,7 @@ export const PromptTab: React.FC<PromptTabProps> = ({
   const [isSheetPasteOpen, setIsSheetPasteOpen] = useState<boolean>(false);
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
   const [isDraggingCover, setIsDraggingCover] = useState<boolean>(false);
+  const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null);
 
   const selectedCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -729,16 +730,32 @@ export const PromptTab: React.FC<PromptTabProps> = ({
                   onDragOver={handleDragOverCover}
                   onDragLeave={handleDragLeaveCover}
                   onDrop={handleDropCover}
-                  className={`relative group w-36 h-48 mx-auto rounded-xl overflow-hidden border transition-all shadow-md ${
+                  onClick={() => setPreviewCoverUrl(bookCovers[title1])}
+                  className={`relative group w-36 h-48 mx-auto rounded-xl overflow-hidden border transition-all shadow-md cursor-pointer ${
                     isDraggingCover
                       ? "border-emerald-500 ring-4 ring-emerald-400/40 scale-105"
-                      : "border-emerald-300 dark:border-emerald-900"
+                      : "border-emerald-300 dark:border-emerald-900 hover:ring-2 hover:ring-indigo-500/50"
                   }`}
+                  title="Bấm để xem full ảnh bìa (Kéo thả để thay ảnh)"
                 >
                   <img src={bookCovers[title1]} alt="Book Cover" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
-                    <label className="px-3 py-1.5 bg-white text-gray-900 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-100 shadow-sm">
-                      Thay ảnh
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewCoverUrl(bookCovers[title1]);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-transform active:scale-95 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Xem full ảnh
+                    </button>
+
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 px-3 py-1 bg-white/90 hover:bg-white text-gray-900 rounded-lg text-[11px] font-bold cursor-pointer shadow-sm"
+                    >
+                      <Upload className="w-3 h-3 text-emerald-600" /> Thay ảnh
                       <input
                         type="file"
                         accept="image/*"
@@ -793,6 +810,41 @@ export const PromptTab: React.FC<PromptTabProps> = ({
           setBookListText={setBookListText}
           bookListText={bookListText}
         />
+      )}
+
+      {/* Lightbox Fullscreen Cover Preview Modal */}
+      {previewCoverUrl && (
+        <div
+          className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setPreviewCoverUrl(null)}
+        >
+          <div
+            className="relative max-w-2xl max-h-[90vh] flex flex-col items-center bg-[#161b22] border border-slate-800 p-4 rounded-2xl shadow-2xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between w-full pb-2 border-b border-slate-800">
+              <span className="text-sm font-bold text-slate-100 line-clamp-1">
+                📖 Xem ảnh bìa: <span className="text-indigo-400">{title1}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewCoverUrl(null)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-full transition-colors cursor-pointer"
+                title="Đóng xem ảnh"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-auto max-h-[75vh] flex items-center justify-center rounded-xl p-1 bg-black/40">
+              <img
+                src={previewCoverUrl}
+                alt="Full Book Cover"
+                className="max-h-[75vh] w-auto object-contain rounded-xl shadow-2xl border border-slate-700/80"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

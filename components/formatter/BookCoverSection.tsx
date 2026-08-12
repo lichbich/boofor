@@ -41,6 +41,7 @@ export const BookCoverSection: React.FC<BookCoverSectionProps> = ({
 }) => {
   const [isBulkUploading, setIsBulkUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewCoverUrl, setPreviewCoverUrl] = useState<string | null>(null);
 
   const processAndSaveImageFile = (file: File) => {
     const reader = new FileReader();
@@ -414,16 +415,52 @@ export const BookCoverSection: React.FC<BookCoverSectionProps> = ({
         ) : (
           <div className="space-y-3">
             {bookCovers[title1] ? (
-              <div className="relative w-full max-w-[200px] aspect-[3/4] rounded-xl overflow-hidden border border-gray-200 group shadow-sm bg-gray-50">
+              <div
+                onClick={() => setPreviewCoverUrl(bookCovers[title1])}
+                className="relative w-full max-w-[200px] aspect-[3/4] rounded-xl overflow-hidden border border-gray-200 group shadow-sm bg-gray-50 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all"
+                title="Bấm để xem full ảnh bìa"
+              >
                 <img
                   src={bookCovers[title1]}
                   alt="Cover Preview"
                   className="w-full h-full object-cover"
                 />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewCoverUrl(bookCovers[title1]);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm cursor-pointer active:scale-95"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Xem full ảnh
+                  </button>
+                  <label
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 px-3 py-1 bg-white/90 hover:bg-white text-gray-900 rounded-lg text-[11px] font-bold cursor-pointer shadow-sm"
+                  >
+                    <Upload className="w-3 h-3 text-indigo-600" /> Thay ảnh
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          processAndSaveImageFile(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
                 <button
                   type="button"
-                  onClick={() => deleteBookCover(title1)}
-                  className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteBookCover(title1);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-colors cursor-pointer z-10"
                   title="Xóa ảnh bìa"
                 >
                   <X className="w-4 h-4" />
@@ -465,6 +502,41 @@ export const BookCoverSection: React.FC<BookCoverSectionProps> = ({
           </div>
         )}
       </div>
+
+      {/* Lightbox Fullscreen Cover Preview Modal */}
+      {previewCoverUrl && (
+        <div
+          className="fixed inset-0 z-[999999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setPreviewCoverUrl(null)}
+        >
+          <div
+            className="relative max-w-2xl max-h-[90vh] flex flex-col items-center bg-[#161b22] border border-slate-800 p-4 rounded-2xl shadow-2xl space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between w-full pb-2 border-b border-slate-800">
+              <span className="text-sm font-bold text-slate-100 line-clamp-1">
+                📖 Xem ảnh bìa: <span className="text-indigo-400">{title1}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewCoverUrl(null)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-full transition-colors cursor-pointer"
+                title="Đóng xem ảnh"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-auto max-h-[75vh] flex items-center justify-center rounded-xl p-1 bg-black/40">
+              <img
+                src={previewCoverUrl}
+                alt="Full Book Cover"
+                className="max-h-[75vh] w-auto object-contain rounded-xl shadow-2xl border border-slate-700/80"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
