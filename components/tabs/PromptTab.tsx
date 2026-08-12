@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Wand2, BookOpen, Check, Copy, ChevronDown, Image as ImageIcon, FileSpreadsheet, Tag, Edit3 } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Wand2, BookOpen, Check, Copy, ChevronDown, Image as ImageIcon, FileSpreadsheet, Tag, Edit3, Upload, Trash2 } from "lucide-react";
 import { SheetPasteModal } from "../prompt/SheetPasteModal";
 
 interface Book {
@@ -47,6 +47,9 @@ interface PromptTabProps {
   bulkUpdateBookGenres?: (items: Array<{ title: string; cat1: string; cat2: string; cat3: string }>) => void;
   setBookListText?: (val: string | ((prev: string) => string)) => void;
   bookListText?: string;
+  bookCovers?: Record<string, string>;
+  saveBookCover?: (bookTitle: string, base64: string) => void;
+  deleteBookCover?: (bookTitle: string) => void;
 }
 
 export const PromptTab: React.FC<PromptTabProps> = ({
@@ -82,10 +85,39 @@ export const PromptTab: React.FC<PromptTabProps> = ({
   bulkUpdateBookGenres,
   setBookListText,
   bookListText,
+  bookCovers,
+  saveBookCover,
+  deleteBookCover,
 }) => {
   const [isCoverOpen, setIsCoverOpen] = useState<boolean>(true);
   const [isSheetPasteOpen, setIsSheetPasteOpen] = useState<boolean>(false);
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
+
+  const selectedCardRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll selected card into view
+  useEffect(() => {
+    if (selectedCardRef.current) {
+      selectedCardRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [title1, title2]);
+
+  const handleCoverUpload = (bookTitle: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && saveBookCover && bookTitle) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          saveBookCover(bookTitle, base64);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined" && currentUsername) {
@@ -336,6 +368,7 @@ export const PromptTab: React.FC<PromptTabProps> = ({
                   return (
                     <div
                       key={idx}
+                      ref={isSelected ? selectedCardRef : null}
                       onClick={() => {
                         selectBook(book.title1, book.title2);
                         if (promptTemplate && promptPlaceholderBook) {
@@ -542,42 +575,7 @@ export const PromptTab: React.FC<PromptTabProps> = ({
           )}
         </div>
 
-        {/* Kết quả xem trước Prompt Nội dung (Content Prompt Preview) */}
-        <div className="bg-white dark:bg-[#161b22] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 flex items-center gap-2">
-              <Wand2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              Kết quả Prompt Nội Dung
-            </h2>
-            {promptTemplate && title1 && promptPlaceholderBook && (
-              <button
-                onClick={() => handleCopy(generatedPrompt, "generatedPrompt")}
-                className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm cursor-pointer"
-              >
-                {copiedId === "generatedPrompt" ? (
-                  <Check className="w-3.5 h-3.5 text-green-300" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}{" "}
-                {copiedId === "generatedPrompt" ? "Đã Copy!" : "Copy Prompt Nội Dung"}
-              </button>
-            )}
-          </div>
-
-          {promptTemplate && title1 && promptPlaceholderBook ? (
-            <div className="w-full p-4 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/30 rounded-xl text-sm text-gray-800 dark:text-slate-200 whitespace-pre-wrap max-h-[45vh] overflow-y-auto leading-relaxed font-mono text-xs">
-              {generatedPrompt}
-            </div>
-          ) : (
-            <div className="w-full p-8 bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-slate-800 rounded-xl text-xs text-gray-400 text-center">
-              {!promptTemplate && "Nhập prompt mẫu viết sách để bắt đầu..."}
-              {promptTemplate && !promptPlaceholderBook && "Nhập tên sách mẫu cần thay thế..."}
-              {promptTemplate && promptPlaceholderBook && !title1 && "Chọn một cuốn sách từ danh sách bên trái..."}
-            </div>
-          )}
-        </div>
-
-        {/* Kết quả xem trước Prompt Ảnh bìa */}
+        {/* Kết quả xem trước Prompt Ảnh bìa & Kéo thả tải ảnh bìa */}
         <div className="bg-white dark:bg-[#161b22] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 flex items-center gap-2">
@@ -600,14 +598,64 @@ export const PromptTab: React.FC<PromptTabProps> = ({
           </div>
 
           {coverPromptTemplate && title1 && coverPromptPlaceholderBook ? (
-            <div className="w-full p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/30 rounded-xl text-sm text-gray-800 dark:text-slate-200 whitespace-pre-wrap max-h-[45vh] overflow-y-auto leading-relaxed font-mono text-xs">
+            <div className="w-full p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/30 rounded-xl text-sm text-gray-800 dark:text-slate-200 whitespace-pre-wrap max-h-[35vh] overflow-y-auto leading-relaxed font-mono text-xs">
               {generatedCoverPrompt}
             </div>
           ) : (
-            <div className="w-full p-8 bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-slate-800 rounded-xl text-xs text-gray-400 text-center">
+            <div className="w-full p-6 bg-gray-50 dark:bg-[#0d1117] border border-gray-200 dark:border-slate-800 rounded-xl text-xs text-gray-400 text-center">
               {!coverPromptTemplate && "Nhập prompt mẫu ảnh bìa để bắt đầu..."}
               {coverPromptTemplate && !coverPromptPlaceholderBook && "Nhập tên sách mẫu ảnh bìa cần thay thế..."}
               {coverPromptTemplate && coverPromptPlaceholderBook && !title1 && "Chọn một cuốn sách từ danh sách bên trái..."}
+            </div>
+          )}
+
+          {/* Cover Image Upload & Sync Area for Active Book */}
+          {title1 && (
+            <div className="pt-3 border-t border-gray-100 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700 dark:text-slate-200 flex items-center gap-1.5">
+                  <Upload className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Kéo thả / Tải ảnh bìa cho: <span className="underline font-extrabold text-indigo-600 dark:text-indigo-400">{title1}</span>
+                </label>
+                {bookCovers && bookCovers[title1] && (
+                  <button
+                    type="button"
+                    onClick={() => deleteBookCover && deleteBookCover(title1)}
+                    className="text-[10px] text-red-500 hover:text-red-700 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3 h-3" /> Xóa ảnh bìa
+                  </button>
+                )}
+              </div>
+
+              {bookCovers && bookCovers[title1] ? (
+                <div className="relative group w-36 h-48 mx-auto rounded-xl overflow-hidden border border-emerald-300 dark:border-emerald-900 shadow-md">
+                  <img src={bookCovers[title1]} alt="Book Cover" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                    <label className="px-3 py-1.5 bg-white text-gray-900 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-100 shadow-sm">
+                      Thay ảnh
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleCoverUpload(title1, e)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-emerald-300/80 dark:border-emerald-900/60 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10 rounded-xl cursor-pointer transition-all text-center group">
+                  <Upload className="w-6 h-6 text-emerald-500 mb-1 group-hover:scale-110 transition-transform" />
+                  <span className="text-xs font-bold text-gray-700 dark:text-slate-200">Kéo thả hoặc Bấm để tải ảnh bìa</span>
+                  <span className="text-[10px] text-gray-400 mt-0.5">Tự động đồng bộ với tab Formatter để xuất EPUB</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleCoverUpload(title1, e)}
+                  />
+                </label>
+              )}
             </div>
           )}
         </div>

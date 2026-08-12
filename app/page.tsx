@@ -131,10 +131,20 @@ export default function Home() {
 
     const checkVersionFile = async () => {
       try {
-        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const remoteBuildId = Number(data.buildId || 0);
+        let remoteBuildId = 0;
+        const apiRes = await fetch(`/api/version?t=${Date.now()}`, { cache: "no-store" });
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          remoteBuildId = Number(apiData.buildId || 0);
+        } else {
+          const res = await fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            remoteBuildId = Number(data.buildId || 0);
+          }
+        }
+
+        if (remoteBuildId > 0) {
           if (localBuildId === 0) {
             localBuildId = remoteBuildId;
           } else if (remoteBuildId > localBuildId) {
@@ -154,8 +164,8 @@ export default function Home() {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleFocus);
 
-    // Periodic check every 30 seconds
-    const interval = setInterval(checkVersionFile, 30000);
+    // Periodic check every 15 seconds
+    const interval = setInterval(checkVersionFile, 15000);
 
     // Firebase RTDB Instant WebSocket push
     const versionRef = ref(rtdb, "boofor/system/app_version");
@@ -373,12 +383,14 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 dark:bg-[#0d1117] p-4 md:p-8 font-sans transition-colors duration-300">
       {/* Floating Live Version Update Notification (0 Vercel Fast Origin Transfer) */}
       {hasNewVersion && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 dark:bg-indigo-500 text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-300/40 flex items-center gap-3 text-xs font-semibold animate-bounce backdrop-blur-md">
-          <Sparkles className="w-4 h-4 text-amber-300" />
-          <span>Hệ thống vừa có bản cập nhật mới!</span>
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white px-6 py-3 rounded-2xl shadow-[0_10px_38px_rgba(79,70,229,0.5)] border border-indigo-300/50 flex items-center gap-4 text-xs font-bold animate-bounce backdrop-blur-xl">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+            <span className="text-sm">🚀 Hệ thống vừa có bản cập nhật mới!</span>
+          </div>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center gap-1.5 px-3 py-1 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-indigo-700 hover:bg-amber-300 hover:text-indigo-950 rounded-xl font-extrabold transition-all shadow-md cursor-pointer active:scale-95"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Cập nhật ngay
@@ -748,6 +760,9 @@ export default function Home() {
                 bulkUpdateBookGenres={state.bulkUpdateBookGenres}
                 setBookListText={state.setBookListText}
                 bookListText={state.bookListText}
+                bookCovers={state.bookCovers}
+                saveBookCover={state.saveBookCover}
+                deleteBookCover={state.deleteBookCover}
               />
             )}
 
