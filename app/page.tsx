@@ -36,6 +36,17 @@ export default function Home() {
   const [hasNewVersion, setHasNewVersion] = useState(false);
   const inboxRef = useRef<HTMLDivElement>(null);
 
+  const buildTime = Number(process.env.NEXT_PUBLIC_BUILD_ID || 0);
+  const buildIdFormatted = buildTime > 0
+    ? new Date(buildTime).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "v1.0.3";
+
   const fetchSharedAuthors = useCallback(async () => {
     const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
     if (isLocal) return;
@@ -776,6 +787,20 @@ export default function Home() {
           (s) => s.authorName && s.authorName.toLowerCase() === viewSharedAuthorName.toLowerCase()
         )}
       />
+
+      {/* Thin Minimalist Version Footer */}
+      <footer className="mt-8 pt-4 pb-2 border-t border-gray-200/60 dark:border-slate-800/60 text-center flex flex-wrap items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-slate-500 font-mono">
+        <span>Boofor Studio</span>
+        <span>•</span>
+        <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+          v1.0.3 ({buildIdFormatted})
+        </span>
+        <span>•</span>
+        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Realtime Auto-Update Active
+        </span>
+      </footer>
     </div>
   );
 }
