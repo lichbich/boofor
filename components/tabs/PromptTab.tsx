@@ -92,6 +92,7 @@ export const PromptTab: React.FC<PromptTabProps> = ({
   const [isCoverOpen, setIsCoverOpen] = useState<boolean>(true);
   const [isSheetPasteOpen, setIsSheetPasteOpen] = useState<boolean>(false);
   const [editingCardIndex, setEditingCardIndex] = useState<number | null>(null);
+  const [isDraggingCover, setIsDraggingCover] = useState<boolean>(false);
 
   const selectedCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -105,17 +106,112 @@ export const PromptTab: React.FC<PromptTabProps> = ({
     }
   }, [title1, title2]);
 
-  const handleCoverUpload = (bookTitle: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && saveBookCover && bookTitle) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        if (base64) {
-          saveBookCover(bookTitle, base64);
+  const processAndSaveCover = (fileOrUrl: File | string, bookTitle: string) => {
+    if (!bookTitle || !saveBookCover) return;
+
+    if (typeof fileOrUrl === "string") {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 600;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
+          saveBookCover(bookTitle, compressedBase64);
         }
       };
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        saveBookCover(bookTitle, fileOrUrl);
+      };
+      img.src = fileOrUrl;
+    } else {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 600;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
+            saveBookCover(bookTitle, compressedBase64);
+          }
+        };
+        img.src = evt.target?.result as string;
+      };
+      reader.readAsDataURL(fileOrUrl);
+    }
+  };
+
+  const handleDragOverCover = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingCover(true);
+  };
+
+  const handleDragLeaveCover = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingCover(false);
+  };
+
+  const handleDropCover = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingCover(false);
+
+    if (!title1) return;
+
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      processAndSaveCover(file, title1);
+      return;
+    }
+
+    const imageUrl = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("URL") || e.dataTransfer.getData("text/plain");
+    if (imageUrl && (imageUrl.startsWith("http") || imageUrl.startsWith("data:image"))) {
+      processAndSaveCover(imageUrl, title1);
     }
   };
 
@@ -629,7 +725,16 @@ export const PromptTab: React.FC<PromptTabProps> = ({
               </div>
 
               {bookCovers && bookCovers[title1] ? (
-                <div className="relative group w-36 h-48 mx-auto rounded-xl overflow-hidden border border-emerald-300 dark:border-emerald-900 shadow-md">
+                <div
+                  onDragOver={handleDragOverCover}
+                  onDragLeave={handleDragLeaveCover}
+                  onDrop={handleDropCover}
+                  className={`relative group w-36 h-48 mx-auto rounded-xl overflow-hidden border transition-all shadow-md ${
+                    isDraggingCover
+                      ? "border-emerald-500 ring-4 ring-emerald-400/40 scale-105"
+                      : "border-emerald-300 dark:border-emerald-900"
+                  }`}
+                >
                   <img src={bookCovers[title1]} alt="Book Cover" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
                     <label className="px-3 py-1.5 bg-white text-gray-900 rounded-lg text-xs font-bold cursor-pointer hover:bg-gray-100 shadow-sm">
@@ -638,21 +743,38 @@ export const PromptTab: React.FC<PromptTabProps> = ({
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => handleCoverUpload(title1, e)}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f && title1) processAndSaveCover(f, title1);
+                        }}
                       />
                     </label>
                   </div>
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-emerald-300/80 dark:border-emerald-900/60 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10 rounded-xl cursor-pointer transition-all text-center group">
-                  <Upload className="w-6 h-6 text-emerald-500 mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-bold text-gray-700 dark:text-slate-200">Kéo thả hoặc Bấm để tải ảnh bìa</span>
+                <label
+                  onDragOver={handleDragOverCover}
+                  onDragLeave={handleDragLeaveCover}
+                  onDrop={handleDropCover}
+                  className={`flex flex-col items-center justify-center p-5 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center group ${
+                    isDraggingCover
+                      ? "border-emerald-500 bg-emerald-100/50 dark:bg-emerald-950/40 ring-4 ring-emerald-400/30 scale-[1.02]"
+                      : "border-emerald-300/80 dark:border-emerald-900/60 hover:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/10"
+                  }`}
+                >
+                  <Upload className={`w-6 h-6 text-emerald-500 mb-1 transition-transform ${isDraggingCover ? "scale-125 animate-bounce text-emerald-600" : "group-hover:scale-110"}`} />
+                  <span className="text-xs font-bold text-gray-700 dark:text-slate-200">
+                    {isDraggingCover ? "Thả ảnh vào đây để tải lên!" : "Kéo thả hoặc Bấm để tải ảnh bìa"}
+                  </span>
                   <span className="text-[10px] text-gray-400 mt-0.5">Tự động đồng bộ với tab Formatter để xuất EPUB</span>
                   <input
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={(e) => handleCoverUpload(title1, e)}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f && title1) processAndSaveCover(f, title1);
+                    }}
                   />
                 </label>
               )}

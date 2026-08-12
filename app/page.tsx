@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useBookState } from "@/hooks/useBookState";
 import { FormatterTab } from "@/components/tabs/FormatterTab";
 import { PromptTab } from "@/components/tabs/PromptTab";
@@ -19,8 +20,18 @@ import { ref, onValue, set } from "firebase/database";
 import { rtdb } from "@/services/firebaseClient";
 
 export default function Home() {
+  const router = useRouter();
   const state = useBookState();
   const { user, isLoading, logout, theme, toggleTheme } = useAuth();
+
+  const handleUpdateApp = () => {
+    setHasNewVersion(false);
+    try {
+      router.refresh();
+    } catch (e) {
+      console.error("Router refresh error:", e);
+    }
+  };
   const [activeMainTab, setActiveMainTab] = useState<"book" | "manage-roles">("book");
   const [sharedAuthors, setSharedAuthors] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -383,13 +394,13 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 dark:bg-[#0d1117] p-4 md:p-8 font-sans transition-colors duration-300">
       {/* Floating Live Version Update Notification (0 Vercel Fast Origin Transfer) */}
       {hasNewVersion && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white px-6 py-3 rounded-2xl shadow-[0_10px_38px_rgba(79,70,229,0.5)] border border-indigo-300/50 flex items-center gap-4 text-xs font-bold animate-bounce backdrop-blur-xl">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white px-6 py-3 rounded-2xl shadow-[0_10px_38px_rgba(79,70,229,0.5)] border border-indigo-300/50 flex items-center gap-4 text-xs font-bold transition-all duration-300 backdrop-blur-xl animate-fadeIn">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
             <span className="text-sm">🚀 Hệ thống vừa có bản cập nhật mới!</span>
           </div>
           <button
-            onClick={() => window.location.reload()}
+            onClick={handleUpdateApp}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-indigo-700 hover:bg-amber-300 hover:text-indigo-950 rounded-xl font-extrabold transition-all shadow-md cursor-pointer active:scale-95"
           >
             <RefreshCw className="w-3.5 h-3.5" />
