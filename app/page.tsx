@@ -8,14 +8,14 @@ import { SplitterTab } from "@/components/tabs/SplitterTab";
 import { ReconcilerTab } from "@/components/tabs/ReconcilerTab";
 import { Modal } from "@/components/common/Modal";
 import { AuthorTabs } from "@/components/common/AuthorTabs";
-import { FileText, Wand2, TableProperties, BookOpen, ShieldAlert, LogOut, Loader2, Clock, Sun, Moon, Bell, Mail, Share2, Inbox, Check, XCircle, Search, X } from "lucide-react";
+import { FileText, Wand2, TableProperties, BookOpen, ShieldAlert, LogOut, Loader2, Clock, Sun, Moon, Bell, Mail, Share2, Inbox, Check, XCircle, Search, X, Sparkles, RefreshCw } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { ManageRoles } from "@/components/admin/ManageRoles";
 import { ShareModal } from "@/components/common/ShareModal";
 import { BulkImportModal } from "@/components/common/BulkImportModal";
 import { ViewSharedModal } from "@/components/common/ViewSharedModal";
-import { ref, onValue } from "firebase/database";
+import { ref, onValue, set } from "firebase/database";
 import { rtdb } from "@/services/firebaseClient";
 
 export default function Home() {
@@ -33,6 +33,7 @@ export default function Home() {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isViewSharedOpen, setIsViewSharedOpen] = useState(false);
   const [viewSharedAuthorName, setViewSharedAuthorName] = useState("");
+  const [hasNewVersion, setHasNewVersion] = useState(false);
   const inboxRef = useRef<HTMLDivElement>(null);
 
   const fetchSharedAuthors = useCallback(async () => {
@@ -105,10 +106,23 @@ export default function Home() {
       setNotifications(notifList);
     });
 
+    // 0 Vercel Fast Origin Transfer: Listen for app_version changes directly via Firebase WebSocket
+    const versionRef = ref(rtdb, "boofor/system/app_version");
+    const unsubscribeVersion = onValue(versionRef, (snapshot) => {
+      const remoteVer = Number(snapshot.val() || 0);
+      const currentVer = Number(process.env.NEXT_PUBLIC_BUILD_ID || 0);
+      if (remoteVer > currentVer && currentVer > 0) {
+        setHasNewVersion(true);
+      } else if (currentVer > remoteVer && currentVer > 0) {
+        set(versionRef, currentVer);
+      }
+    });
+
     return () => {
       unsubscribeShares();
       unsubscribeSent();
       unsubscribeNotif();
+      unsubscribeVersion();
     };
   }, [user?.username]);
 
@@ -305,6 +319,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0d1117] p-4 md:p-8 font-sans transition-colors duration-300">
+      {/* Floating Live Version Update Notification (0 Vercel Fast Origin Transfer) */}
+      {hasNewVersion && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 dark:bg-indigo-500 text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-300/40 flex items-center gap-3 text-xs font-semibold animate-bounce backdrop-blur-md">
+          <Sparkles className="w-4 h-4 text-amber-300" />
+          <span>Hệ thống vừa có bản cập nhật mới!</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-1.5 px-3 py-1 bg-white text-indigo-700 hover:bg-indigo-50 rounded-xl font-bold transition-all shadow-sm cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Cập nhật ngay
+          </button>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto">
         {/* Top user profile header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-white dark:bg-[#161b22] px-5 py-3 rounded-xl shadow-sm border border-gray-200 transition-colors duration-300 animate-fadeIn">
