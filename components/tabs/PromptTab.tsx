@@ -284,57 +284,7 @@ export const PromptTab: React.FC<PromptTabProps> = ({
           )}
         </div>
 
-        {/* Selected Book Category Input Box */}
-        {title1 && updateBookGenres && (
-          <div className="bg-gradient-to-r from-indigo-50/70 to-blue-50/70 dark:from-indigo-950/30 dark:to-blue-950/20 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 space-y-3 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
-                <Tag className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                Thể loại cho cuốn đang chọn: <span className="underline">{title1}</span>
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-gray-600 dark:text-slate-300">Thể loại 1 (Primary)</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-1.5 bg-white dark:bg-[#161b22] border border-indigo-200/80 dark:border-slate-700 rounded-lg text-xs text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  value={activeBookObj.cat1 || ""}
-                  placeholder="BUSINESS & ECONOMICS..."
-                  onChange={(e) =>
-                    updateBookGenres(title1, e.target.value, activeBookObj.cat2 || "", activeBookObj.cat3 || "")
-                  }
-                />
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-gray-600 dark:text-slate-300">Thể loại 2 (Secondary)</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-1.5 bg-white dark:bg-[#161b22] border border-indigo-200/80 dark:border-slate-700 rounded-lg text-xs text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  value={activeBookObj.cat2 || ""}
-                  placeholder="Personal Finance..."
-                  onChange={(e) =>
-                    updateBookGenres(title1, activeBookObj.cat1 || "", e.target.value, activeBookObj.cat3 || "")
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-gray-600 dark:text-slate-300">Thể loại 3 (Tertiary)</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-1.5 bg-white dark:bg-[#161b22] border border-indigo-200/80 dark:border-slate-700 rounded-lg text-xs text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  value={activeBookObj.cat3 || ""}
-                  placeholder="SELF-HELP..."
-                  onChange={(e) =>
-                    updateBookGenres(title1, activeBookObj.cat1 || "", activeBookObj.cat2 || "", e.target.value)
-                  }
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Danh sách sách & Copy nhanh */}
         <div className="bg-white dark:bg-[#161b22] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 space-y-4">

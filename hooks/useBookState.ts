@@ -188,6 +188,9 @@ export const useBookState = () => {
       let initialCat2 = savedCat2 !== null ? savedCat2 : "[INSERT CATEGORY 2 HERE]";
       let initialCat3 = savedCat3 !== null ? savedCat3 : "[INSERT CATEGORY 3 HERE]";
 
+      const savedGlobalKeywords = localStorage.getItem("bofo_globalChapterKeywords");
+      const savedGlobalPhrases = localStorage.getItem("bofo_globalCustomBlockPhrases");
+
       if (savedTabs && Array.isArray(savedTabs) && savedTabs.length > 0) {
         const parsedTabs = savedTabs as AuthorTab[];
         setTabs(parsedTabs);
@@ -204,9 +207,9 @@ export const useBookState = () => {
           setAuthor(activeTabObj.author || "");
           setBookListText(activeTabObj.bookListText || "");
           setIntroductionText(activeTabObj.introductionText || "");
-          setChapterKeywords(activeTabObj.chapterKeywords || "chapter, lesson");
+          setChapterKeywords(activeTabObj.chapterKeywords || savedGlobalKeywords || "chapter, lesson");
           setGenresText(activeTabObj.genresText || "");
-          setCustomBlockPhrases(activeTabObj.customBlockPhrases || "");
+          setCustomBlockPhrases(activeTabObj.customBlockPhrases || savedGlobalPhrases || "");
           
           setSplitterInput(activeTabObj.splitterInput || "");
           setReconcilerRawText(activeTabObj.reconcilerRawText || "");
@@ -358,6 +361,20 @@ export const useBookState = () => {
     }
   }, [title1, bookIntroMap, globalBookIntros, author, isMounted]);
 
+  // Sync FormatterTab Genres content based on current Title1 & bookGenresMap
+  useEffect(() => {
+    if (isMounted) {
+      const bookName = (title1 || "").trim();
+      if (bookName && bookGenresMap[bookName]) {
+        const g = bookGenresMap[bookName];
+        const list = [g.cat1, g.cat2, g.cat3].filter((c) => c && c.trim().length > 0);
+        if (list.length > 0) {
+          setGenresText(list.join("\n"));
+        }
+      }
+    }
+  }, [title1, bookGenresMap, isMounted]);
+
   // Handle document scrolling when popup list is open
   useEffect(() => {
     if (isChapterListOpen) {
@@ -503,6 +520,8 @@ export const useBookState = () => {
         localStorage.setItem("bofo_promptPlaceholderCat1", promptPlaceholderCat1);
         localStorage.setItem("bofo_promptPlaceholderCat2", promptPlaceholderCat2);
         localStorage.setItem("bofo_promptPlaceholderCat3", promptPlaceholderCat3);
+        localStorage.setItem("bofo_globalChapterKeywords", chapterKeywords);
+        localStorage.setItem("bofo_globalCustomBlockPhrases", customBlockPhrases);
       } catch (e) {
         console.error("Failed to save prompt config to localStorage", e);
       }
@@ -687,6 +706,9 @@ export const useBookState = () => {
   const addTab = () => {
     isSwitchingTabRef.current = true;
 
+    const currentGlobalKeywords = chapterKeywords || (typeof window !== "undefined" ? localStorage.getItem("bofo_globalChapterKeywords") : null) || "chapter, lesson";
+    const currentGlobalPhrases = customBlockPhrases || (typeof window !== "undefined" ? localStorage.getItem("bofo_globalCustomBlockPhrases") : null) || "";
+
     const newId = `tab_${Date.now()}`;
     const newTab: AuthorTab = {
       id: newId,
@@ -695,9 +717,9 @@ export const useBookState = () => {
       author: "",
       bookListText: "",
       introductionText: "",
-      chapterKeywords: "chapter, lesson",
+      chapterKeywords: currentGlobalKeywords,
       genresText: "Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks",
-      customBlockPhrases: "",
+      customBlockPhrases: currentGlobalPhrases,
       splitterInput: "",
       reconcilerRawText: "",
       reconcilerWarehouseText: "",
@@ -755,9 +777,9 @@ export const useBookState = () => {
     setAuthor("");
     setBookListText("");
     setIntroductionText("");
-    setChapterKeywords("chapter, lesson");
+    setChapterKeywords(currentGlobalKeywords);
     setGenresText("Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks");
-    setCustomBlockPhrases("");
+    setCustomBlockPhrases(currentGlobalPhrases);
     setSplitterInput("");
     setReconcilerRawText("");
     setReconcilerWarehouseText("");
