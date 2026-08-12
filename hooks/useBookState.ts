@@ -15,6 +15,12 @@ import { exportToWord, exportToPDF, exportToEPUB } from "@/services/exportServic
 import { dbGet, dbSet } from "@/utils/db";
 import { saveAs } from "file-saver";
 
+export interface BookCategoryData {
+  cat1: string;
+  cat2: string;
+  cat3: string;
+}
+
 export interface AuthorTab {
   id: string;
   title1: string;
@@ -36,6 +42,7 @@ export interface AuthorTab {
   authorEditorContent: string;
   bookIntroMap: Record<string, string>;
   bookContentMap: Record<string, string>;
+  bookGenresMap?: Record<string, BookCategoryData>;
   activeSubTab: "formatter" | "prompt" | "splitter" | "reconciler";
   assignedCards?: string[];
   completedCards?: string[];
@@ -91,6 +98,7 @@ export const useBookState = () => {
   const [bookIntroMap, setBookIntroMap] = useState<Record<string, string>>({});
   const [authorInfoMap, setAuthorInfoMap] = useState<Record<string, string>>({});
   const [bookContentMap, setBookContentMap] = useState<Record<string, string>>({});
+  const [bookGenresMap, setBookGenresMap] = useState<Record<string, BookCategoryData>>({});
 
   const [bookCovers, setBookCovers] = useState<Record<string, string>>({});
   const [globalBookIntros, setGlobalBookIntros] = useState<Record<string, string>>({});
@@ -98,6 +106,9 @@ export const useBookState = () => {
   const [coverPromptPlaceholderBook, setCoverPromptPlaceholderBook] = useState("");
   const [promptPlaceholderAuthor, setPromptPlaceholderAuthor] = useState("");
   const [coverPromptPlaceholderAuthor, setCoverPromptPlaceholderAuthor] = useState("");
+  const [promptPlaceholderCat1, setPromptPlaceholderCat1] = useState("[INSERT CATEGORY 1 HERE]");
+  const [promptPlaceholderCat2, setPromptPlaceholderCat2] = useState("[INSERT CATEGORY 2 HERE]");
+  const [promptPlaceholderCat3, setPromptPlaceholderCat3] = useState("[INSERT CATEGORY 3 HERE]");
   const [isBatchExporting, setIsBatchExporting] = useState(false);
   const [batchProgress, setBatchProgress] = useState("");
 
@@ -170,6 +181,13 @@ export const useBookState = () => {
       const savedCoverAuthorPlaceholder = localStorage.getItem("bofo_coverPromptPlaceholderAuthor");
       let initialCoverAuthorPlaceholder = savedCoverAuthorPlaceholder !== null ? savedCoverAuthorPlaceholder : "ANGEL MENDEZ";
 
+      const savedCat1 = localStorage.getItem("bofo_promptPlaceholderCat1");
+      const savedCat2 = localStorage.getItem("bofo_promptPlaceholderCat2");
+      const savedCat3 = localStorage.getItem("bofo_promptPlaceholderCat3");
+      let initialCat1 = savedCat1 !== null ? savedCat1 : "[INSERT CATEGORY 1 HERE]";
+      let initialCat2 = savedCat2 !== null ? savedCat2 : "[INSERT CATEGORY 2 HERE]";
+      let initialCat3 = savedCat3 !== null ? savedCat3 : "[INSERT CATEGORY 3 HERE]";
+
       if (savedTabs && Array.isArray(savedTabs) && savedTabs.length > 0) {
         const parsedTabs = savedTabs as AuthorTab[];
         setTabs(parsedTabs);
@@ -199,6 +217,7 @@ export const useBookState = () => {
           setDetectedChapters(activeTabObj.detectedChapters || []);
           setBookIntroMap(activeTabObj.bookIntroMap || {});
           setBookContentMap(activeTabObj.bookContentMap || {});
+          setBookGenresMap(activeTabObj.bookGenresMap || {});
           setActiveTab(activeTabObj.activeSubTab || "formatter");
         }
       } else {
@@ -237,6 +256,7 @@ export const useBookState = () => {
           authorEditorContent: oldAuthorEditorContent,
           bookIntroMap: oldBookIntroMap,
           bookContentMap: {},
+          bookGenresMap: {},
           activeSubTab: "formatter",
           reconcilerRawText: "",
           reconcilerWarehouseText: "",
@@ -260,6 +280,7 @@ export const useBookState = () => {
         setIsPromptOpen(true);
         setBookIntroMap(oldBookIntroMap);
         setBookContentMap({});
+        setBookGenresMap({});
         setReconcilerRawText("");
         setReconcilerWarehouseText("");
       }
@@ -270,6 +291,9 @@ export const useBookState = () => {
       setCoverPromptTemplate(initialCoverTemplate);
       setCoverPromptPlaceholderBook(initialCoverPlaceholder);
       setCoverPromptPlaceholderAuthor(initialCoverAuthorPlaceholder);
+      setPromptPlaceholderCat1(initialCat1);
+      setPromptPlaceholderCat2(initialCat2);
+      setPromptPlaceholderCat3(initialCat3);
       setIsMounted(true);
     };
 
@@ -476,6 +500,9 @@ export const useBookState = () => {
         localStorage.setItem("bofo_coverPromptTemplate", coverPromptTemplate);
         localStorage.setItem("bofo_coverPromptPlaceholderBook", coverPromptPlaceholderBook);
         localStorage.setItem("bofo_coverPromptPlaceholderAuthor", coverPromptPlaceholderAuthor);
+        localStorage.setItem("bofo_promptPlaceholderCat1", promptPlaceholderCat1);
+        localStorage.setItem("bofo_promptPlaceholderCat2", promptPlaceholderCat2);
+        localStorage.setItem("bofo_promptPlaceholderCat3", promptPlaceholderCat3);
       } catch (e) {
         console.error("Failed to save prompt config to localStorage", e);
       }
@@ -508,6 +535,7 @@ export const useBookState = () => {
                 detectedChapters,
                 bookIntroMap,
                 bookContentMap: nextMap,
+                bookGenresMap,
                 activeSubTab: activeTab,
                 editorContent: currentEditorContent,
                 authorEditorContent: currentAuthorEditorContent,
@@ -556,6 +584,9 @@ export const useBookState = () => {
     coverPromptTemplate,
     coverPromptPlaceholderBook,
     coverPromptPlaceholderAuthor,
+    promptPlaceholderCat1,
+    promptPlaceholderCat2,
+    promptPlaceholderCat3,
     splitterInput,
     reconcilerRawText,
     reconcilerWarehouseText,
@@ -564,6 +595,7 @@ export const useBookState = () => {
     isPromptOpen,
     detectedChapters,
     bookIntroMap,
+    bookGenresMap,
     activeTab,
     editor,
     authorEditor,
@@ -601,6 +633,7 @@ export const useBookState = () => {
             detectedChapters,
             bookIntroMap,
             bookContentMap,
+            bookGenresMap,
             activeSubTab: activeTab,
             editorContent: currentEditorContent,
             authorEditorContent: currentAuthorEditorContent,
@@ -628,6 +661,7 @@ export const useBookState = () => {
         setDetectedChapters(nextTab.detectedChapters || []);
         setBookIntroMap(nextTab.bookIntroMap || {});
         setBookContentMap(nextTab.bookContentMap || {});
+        setBookGenresMap(nextTab.bookGenresMap || {});
         setActiveTab(nextTab.activeSubTab || "formatter");
 
         if (editor) {
@@ -675,6 +709,7 @@ export const useBookState = () => {
       authorEditorContent: "",
       bookIntroMap: {},
       bookContentMap: {},
+      bookGenresMap: {},
       activeSubTab: "formatter",
       assignedCards: [],
       completedCards: [],
@@ -704,6 +739,7 @@ export const useBookState = () => {
             detectedChapters,
             bookIntroMap,
             bookContentMap,
+            bookGenresMap,
             activeSubTab: activeTab,
             editorContent: currentEditorContent,
             authorEditorContent: currentAuthorEditorContent,
@@ -731,6 +767,7 @@ export const useBookState = () => {
     setDetectedChapters([]);
     setBookIntroMap({});
     setBookContentMap({});
+    setBookGenresMap({});
     setActiveTab("formatter");
 
     if (editor) {
@@ -780,6 +817,7 @@ export const useBookState = () => {
         setDetectedChapters(nextActiveTab.detectedChapters || []);
         setBookIntroMap(nextActiveTab.bookIntroMap || {});
         setBookContentMap(nextActiveTab.bookContentMap || {});
+        setBookGenresMap(nextActiveTab.bookGenresMap || {});
         setActiveTab(nextActiveTab.activeSubTab || "formatter");
 
         if (editor) {
@@ -819,9 +857,49 @@ export const useBookState = () => {
       .filter((line) => line.length > 0)
       .map((line) => {
         const cleanTitle = line.replace(/^\d+\.\s*/, "");
-        return { title1: cleanTitle, title2: "", full: line };
+        const genres = bookGenresMap[cleanTitle] || { cat1: "", cat2: "", cat3: "" };
+        return {
+          title1: cleanTitle,
+          title2: "",
+          full: line,
+          cat1: genres.cat1 || "",
+          cat2: genres.cat2 || "",
+          cat3: genres.cat3 || "",
+        };
       });
-  }, [bookListText]);
+  }, [bookListText, bookGenresMap]);
+
+  const updateBookGenres = (bookTitle: string, cat1: string, cat2: string, cat3: string) => {
+    setBookGenresMap((prev) => {
+      const updated = {
+        ...prev,
+        [bookTitle]: { cat1, cat2, cat3 },
+      };
+      setTabs((prevTabs) =>
+        prevTabs.map((t) => (t.id === activeTabId ? { ...t, bookGenresMap: updated } : t))
+      );
+      return updated;
+    });
+  };
+
+  const bulkUpdateBookGenres = (items: Array<{ title: string; cat1: string; cat2: string; cat3: string }>) => {
+    setBookGenresMap((prev) => {
+      const updated = { ...prev };
+      items.forEach((item) => {
+        if (item.title) {
+          updated[item.title] = {
+            cat1: item.cat1 || "",
+            cat2: item.cat2 || "",
+            cat3: item.cat3 || "",
+          };
+        }
+      });
+      setTabs((prevTabs) =>
+        prevTabs.map((t) => (t.id === activeTabId ? { ...t, bookGenresMap: updated } : t))
+      );
+      return updated;
+    });
+  };
 
 
 
@@ -1353,6 +1431,16 @@ export const useBookState = () => {
     setPromptPlaceholderAuthor,
     coverPromptPlaceholderAuthor,
     setCoverPromptPlaceholderAuthor,
+    promptPlaceholderCat1,
+    setPromptPlaceholderCat1,
+    promptPlaceholderCat2,
+    setPromptPlaceholderCat2,
+    promptPlaceholderCat3,
+    setPromptPlaceholderCat3,
+    bookGenresMap,
+    setBookGenresMap,
+    updateBookGenres,
+    bulkUpdateBookGenres,
     isBatchExporting,
     batchProgress,
     triggerBatchExportEPUB,

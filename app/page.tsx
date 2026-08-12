@@ -638,6 +638,12 @@ export default function Home() {
                 setPromptPlaceholderBook={state.setPromptPlaceholderBook}
                 promptPlaceholderAuthor={state.promptPlaceholderAuthor}
                 setPromptPlaceholderAuthor={state.setPromptPlaceholderAuthor}
+                promptPlaceholderCat1={state.promptPlaceholderCat1}
+                setPromptPlaceholderCat1={state.setPromptPlaceholderCat1}
+                promptPlaceholderCat2={state.promptPlaceholderCat2}
+                setPromptPlaceholderCat2={state.setPromptPlaceholderCat2}
+                promptPlaceholderCat3={state.promptPlaceholderCat3}
+                setPromptPlaceholderCat3={state.setPromptPlaceholderCat3}
                 coverPromptTemplate={state.coverPromptTemplate}
                 setCoverPromptTemplate={state.setCoverPromptTemplate}
                 coverPromptPlaceholderBook={state.coverPromptPlaceholderBook}
@@ -657,6 +663,10 @@ export default function Home() {
                 isPromptOpen={state.isPromptOpen}
                 setIsPromptOpen={state.setIsPromptOpen}
                 currentUsername={user?.username || ""}
+                updateBookGenres={state.updateBookGenres}
+                bulkUpdateBookGenres={state.bulkUpdateBookGenres}
+                setBookListText={state.setBookListText}
+                bookListText={state.bookListText}
               />
             )}
 
