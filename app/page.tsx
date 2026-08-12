@@ -117,25 +117,65 @@ export default function Home() {
       setNotifications(notifList);
     });
 
-    // 0 Vercel Fast Origin Transfer: Listen for app_version changes directly via Firebase WebSocket
-    const versionRef = ref(rtdb, "boofor/system/app_version");
-    const unsubscribeVersion = onValue(versionRef, (snapshot) => {
-      const remoteVer = Number(snapshot.val() || 0);
-      const currentVer = Number(process.env.NEXT_PUBLIC_BUILD_ID || 0);
-      if (remoteVer > currentVer && currentVer > 0) {
-        setHasNewVersion(true);
-      } else if (currentVer > remoteVer && currentVer > 0) {
-        set(versionRef, currentVer);
-      }
-    });
-
     return () => {
       unsubscribeShares();
       unsubscribeSent();
       unsubscribeNotif();
-      unsubscribeVersion();
     };
   }, [user?.username]);
+
+  // Guaranteed Bulletproof Version Auto-Check (0 Vercel Fast Origin Transfer via CDN & Firebase)
+  useEffect(() => {
+    let isMounted = true;
+    let localBuildId = Number(process.env.NEXT_PUBLIC_BUILD_ID || 0);
+
+    const checkVersionFile = async () => {
+      try {
+        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          const remoteBuildId = Number(data.buildId || 0);
+          if (localBuildId === 0) {
+            localBuildId = remoteBuildId;
+          } else if (remoteBuildId > localBuildId) {
+            if (isMounted) setHasNewVersion(true);
+          }
+        }
+      } catch (e) {
+        console.error("Version check error:", e);
+      }
+    };
+
+    // Initial check on page load
+    checkVersionFile();
+
+    // Check on window focus and tab visibility change
+    const handleFocus = () => checkVersionFile();
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
+    // Periodic check every 30 seconds
+    const interval = setInterval(checkVersionFile, 30000);
+
+    // Firebase RTDB Instant WebSocket push
+    const versionRef = ref(rtdb, "boofor/system/app_version");
+    const unsubscribeVersion = onValue(versionRef, (snapshot) => {
+      const remoteVer = Number(snapshot.val() || 0);
+      if (remoteVer > localBuildId && localBuildId > 0) {
+        if (isMounted) setHasNewVersion(true);
+      } else if (localBuildId > remoteVer && localBuildId > 0) {
+        set(versionRef, localBuildId).catch(() => {});
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+      clearInterval(interval);
+      unsubscribeVersion();
+    };
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
