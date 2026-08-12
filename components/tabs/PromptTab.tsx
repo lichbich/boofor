@@ -95,12 +95,12 @@ export const PromptTab: React.FC<PromptTabProps> = ({
 
   const selectedCardRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll selected card into view
+  // Auto-scroll selected card into view (centered so cards above and below remain visible)
   useEffect(() => {
     if (selectedCardRef.current) {
       selectedCardRef.current.scrollIntoView({
         behavior: "smooth",
-        block: "nearest",
+        block: "center",
       });
     }
   }, [title1, title2]);
