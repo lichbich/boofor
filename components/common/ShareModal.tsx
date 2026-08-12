@@ -91,6 +91,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           authorName: tab.author,
           bookListText: tab.bookListText || "",
           bookIntroMap: tab.bookIntroMap || {},
+          bookGenresMap: tab.bookGenresMap || {},
           genresText: tab.genresText || "",
           chapterKeywords: tab.chapterKeywords || "chapter, lesson",
           customBlockPhrases: tab.customBlockPhrases || "",
@@ -102,6 +103,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         payload.authorName = authorTab.author || "Tác giả mới";
         payload.bookListText = authorTab.bookListText || "";
         payload.bookIntroMap = authorTab.bookIntroMap || {};
+        payload.bookGenresMap = authorTab.bookGenresMap || {};
         payload.genresText = authorTab.genresText || "";
         payload.chapterKeywords = authorTab.chapterKeywords || "";
         payload.customBlockPhrases = authorTab.customBlockPhrases || "";

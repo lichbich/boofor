@@ -184,6 +184,7 @@ export default function Home() {
         authorName: fullShare.authorName,
         bookListText: fullShare.bookListText,
         bookIntroMap: fullShare.bookIntroMap,
+        bookGenresMap: fullShare.bookGenresMap,
         genresText: fullShare.genresText,
         chapterKeywords: fullShare.chapterKeywords,
         customBlockPhrases: fullShare.customBlockPhrases,

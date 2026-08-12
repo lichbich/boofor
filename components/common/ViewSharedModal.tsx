@@ -117,11 +117,11 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
 
                   {/* Backup Info Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Book List Backup */}
+                    {/* Book List Backup with Genres per book */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-gray-500 dark:text-slate-450 uppercase tracking-wider flex items-center gap-1">
-                          <BookOpen className="w-3 h-3" /> Danh sách sách
+                          <BookOpen className="w-3 h-3 text-indigo-500" /> Danh sách sách & Thể loại
                         </span>
                         <button
                           onClick={() => handleCopy(share.bookListText, `list_${share.id}`)}
@@ -129,11 +129,51 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
                           className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-0.5 disabled:opacity-50"
                         >
                           {copiedId === `list_${share.id}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
-                          {copiedId === `list_${share.id}` ? "Copied" : "Copy"}
+                          {copiedId === `list_${share.id}` ? "Copied" : "Copy sách"}
                         </button>
                       </div>
-                      <div className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-slate-800/80 rounded-xl p-3 text-xs text-gray-700 dark:text-slate-300 font-mono h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                        {share.bookListText || "Không có danh sách sách"}
+                      <div className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-slate-800/80 rounded-xl p-3 text-xs text-gray-700 dark:text-slate-300 h-36 overflow-y-auto space-y-2 custom-scrollbar">
+                        {share.bookListText ? (
+                          (share.bookListText || "")
+                            .split("\n")
+                            .map((l: string) => l.trim())
+                            .filter(Boolean)
+                            .map((line: string, bIdx: number) => {
+                              const cleanTitle = line.replace(/^\d+\.\s*/, "").trim();
+                              const genresObj = (share.bookGenresMap || {})[cleanTitle] || (share.bookGenresMap || {})[line];
+
+                              return (
+                                <div key={bIdx} className="p-2 rounded-lg bg-gray-50 dark:bg-[#0d1117] border border-gray-100 dark:border-slate-800 space-y-1">
+                                  <div className="font-bold text-gray-800 dark:text-slate-200 text-xs">
+                                    {bIdx + 1}. {cleanTitle}
+                                  </div>
+                                  {genresObj && (genresObj.cat1 || genresObj.cat2 || genresObj.cat3) ? (
+                                    <div className="flex flex-wrap gap-1 pt-0.5">
+                                      {genresObj.cat1 && (
+                                        <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded font-medium">
+                                          {genresObj.cat1}
+                                        </span>
+                                      )}
+                                      {genresObj.cat2 && (
+                                        <span className="text-[9px] bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-medium">
+                                          {genresObj.cat2}
+                                        </span>
+                                      )}
+                                      {genresObj.cat3 && (
+                                        <span className="text-[9px] bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium">
+                                          {genresObj.cat3}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400 italic block">Chưa gán thể loại riêng</span>
+                                  )}
+                                </div>
+                              );
+                            })
+                        ) : (
+                          <div className="text-gray-400 italic text-center py-4">Không có danh sách sách</div>
+                        )}
                       </div>
                     </div>
 
@@ -141,7 +181,7 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold text-gray-500 dark:text-slate-450 uppercase tracking-wider flex items-center gap-1">
-                          <Layers className="w-3 h-3" /> Thể loại (Genres)
+                          <Layers className="w-3 h-3 text-indigo-500" /> Tổng hợp Genres (Formatter)
                         </span>
                         <button
                           onClick={() => handleCopy(share.genresText, `genres_${share.id}`)}
@@ -149,10 +189,10 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
                           className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-0.5 disabled:opacity-50"
                         >
                           {copiedId === `genres_${share.id}` ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
-                          {copiedId === `genres_${share.id}` ? "Copied" : "Copy"}
+                          {copiedId === `genres_${share.id}` ? "Copied" : "Copy Genres"}
                         </button>
                       </div>
-                      <div className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-slate-800/80 rounded-xl p-3 text-xs text-gray-700 dark:text-slate-300 font-mono h-24 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                      <div className="w-full bg-white dark:bg-[#161b22] border border-gray-200 dark:border-slate-800/80 rounded-xl p-3 text-xs text-gray-700 dark:text-slate-300 font-mono h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed">
                         {share.genresText || "Không có thông tin thể loại"}
                       </div>
                     </div>

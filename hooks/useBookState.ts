@@ -1143,6 +1143,7 @@ export const useBookState = () => {
     authorName: string;
     bookListText?: string;
     bookIntroMap?: Record<string, string>;
+    bookGenresMap?: Record<string, BookCategoryData>;
     genresText?: string;
     chapterKeywords?: string;
     customBlockPhrases?: string;
@@ -1186,6 +1187,7 @@ export const useBookState = () => {
       authorEditorContent: "",
       bookIntroMap: sharedData.bookIntroMap || {},
       bookContentMap: {},
+      bookGenresMap: sharedData.bookGenresMap || {},
       activeSubTab: "formatter",
     };
 
@@ -1213,6 +1215,7 @@ export const useBookState = () => {
             detectedChapters,
             bookIntroMap,
             bookContentMap,
+            bookGenresMap,
             activeSubTab: activeTab,
             editorContent: currentEditorContent,
             authorEditorContent: currentAuthorEditorContent,
@@ -1240,6 +1243,7 @@ export const useBookState = () => {
     setDetectedChapters([]);
     setBookIntroMap(sharedData.bookIntroMap || {});
     setBookContentMap({});
+    setBookGenresMap(sharedData.bookGenresMap || {});
     setActiveTab("formatter");
 
     if (editor) {
