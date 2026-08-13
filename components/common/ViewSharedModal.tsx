@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Calendar, User, Check, Copy, Eye, BookOpen, Layers } from "lucide-react";
+import { X, Calendar, User, Check, Copy, Eye, BookOpen, Layers, Download } from "lucide-react";
 import { copyToClipboard } from "@/utils/clipboard";
 
 interface ViewSharedModalProps {
@@ -7,6 +7,7 @@ interface ViewSharedModalProps {
   onClose: () => void;
   authorName: string;
   shares: any[]; // Filtered sentShares for this author
+  onApplyShare?: (share: any) => void;
 }
 
 export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
@@ -14,6 +15,7 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
   onClose,
   authorName,
   shares = [],
+  onApplyShare,
 }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -110,9 +112,21 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
                         Gửi lúc: {sharedDate}
                       </span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(share.status)}`}>
-                      {getStatusText(share.status)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getStatusBadgeClass(share.status)}`}>
+                        {getStatusText(share.status)}
+                      </span>
+                      {onApplyShare && (
+                        <button
+                          onClick={() => onApplyShare(share)}
+                          className="px-2.5 py-1 text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-sm flex items-center gap-1 cursor-pointer active:scale-95"
+                          title="Nạp lại thông tin này vào Workspace của bạn để tiếp tục làm việc (vẫn giữ nguyên lượt chia sẻ cho người nhận)"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Áp dụng vào Workspace</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Backup Info Grid */}

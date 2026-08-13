@@ -14,6 +14,7 @@ interface AuthorTabsProps {
   onShareAll?: () => void;
   sentShares?: any[];
   onBulkAdd?: () => void;
+  onViewShares?: (authorName: string) => void;
 }
 
 export const AuthorTabs: React.FC<AuthorTabsProps> = ({
@@ -28,6 +29,7 @@ export const AuthorTabs: React.FC<AuthorTabsProps> = ({
   onShareAll,
   sentShares,
   onBulkAdd,
+  onViewShares,
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -112,18 +114,23 @@ export const AuthorTabs: React.FC<AuthorTabsProps> = ({
                     {displayName}
                   </span>
                   {tabShares.length > 0 && (
-                    <span 
-                      className="flex items-center gap-0.5 px-1 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded text-[9px] font-extrabold shrink-0 ml-1"
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewShares?.(displayName);
+                      }}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded text-[9px] font-extrabold shrink-0 ml-1 transition-colors cursor-pointer"
                       title={
                         "Đã chia sẻ cho:\n" + tabShares.map((s: any) => {
                           const statusText = s.status === "accepted" ? "đã nhận" : s.status === "declined" ? "từ chối" : "chờ nhận";
                           return `- ${s.recipient} (${statusText})`;
-                        }).join("\n")
+                        }).join("\n") + "\n\n💡 Bấm vào để xem chi tiết & Áp dụng lại vào Workspace"
                       }
                     >
                       <Share2 className="w-2.5 h-2.5" />
                       <span>{tabShares.length}</span>
-                    </span>
+                    </button>
                   )}
                 </div>
               )}

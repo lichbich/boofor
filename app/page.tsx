@@ -227,6 +227,26 @@ export default function Home() {
     setIsViewSharedOpen(true);
   };
 
+  const handleApplySentShare = (share: any) => {
+    try {
+      const targetAuthorName = share.authorName || viewSharedAuthorName || "Tác giả mới";
+      state.importSharedAuthor({
+        authorName: targetAuthorName,
+        bookListText: share.bookListText,
+        bookIntroMap: share.bookIntroMap,
+        bookGenresMap: share.bookGenresMap,
+        genresText: share.genresText,
+        chapterKeywords: share.chapterKeywords,
+        customBlockPhrases: share.customBlockPhrases,
+      });
+      setIsViewSharedOpen(false);
+      alert(`Đã áp dụng thành công dữ liệu tác giả "${targetAuthorName}" vào Workspace để bạn làm việc. Lượt chia sẻ cho người nhận vẫn được giữ nguyên.`);
+    } catch (err) {
+      console.error("Apply share error:", err);
+      alert("Đã xảy ra lỗi khi áp dụng dữ liệu tác giả.");
+    }
+  };
+
   const handleImportShare = async (share: any) => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("boofor_session_id") : null;
@@ -634,6 +654,7 @@ export default function Home() {
               onShareAll={handleOpenShareAllModal}
               sentShares={sentShares}
               onBulkAdd={() => setIsBulkImportOpen(true)}
+              onViewShares={handleOpenViewShares}
             />
 
             {/* Tab Navigation */}
@@ -853,6 +874,7 @@ export default function Home() {
         shares={sentShares.filter(
           (s) => s.authorName && s.authorName.toLowerCase() === viewSharedAuthorName.toLowerCase()
         )}
+        onApplyShare={handleApplySentShare}
       />
 
       {/* Thin Minimalist Version Footer */}
