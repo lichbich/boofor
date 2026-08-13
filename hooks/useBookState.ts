@@ -1268,7 +1268,38 @@ export const useBookState = () => {
 
     const timestamp = Date.now();
     const newTabs: AuthorTab[] = authors.map((authorName, index) => {
-      const bookTitle = books[index] || "";
+      const rawLine = (books[index] || "").trim();
+      let bookTitle = rawLine;
+      let cat1 = "";
+      let cat2 = "";
+      let cat3 = "";
+
+      if (rawLine.includes("\t")) {
+        const parts = rawLine.split("\t").map((p) => p.trim());
+        bookTitle = parts[0] || "";
+        cat1 = parts[1] || "";
+        cat2 = parts[2] || "";
+        cat3 = parts[3] || "";
+      } else if (rawLine.includes("|")) {
+        const parts = rawLine.split("|").map((p) => p.trim());
+        bookTitle = parts[0] || "";
+        cat1 = parts[1] || "";
+        cat2 = parts[2] || "";
+        cat3 = parts[3] || "";
+      }
+
+      bookTitle = bookTitle.replace(/^\d+[\s\.\-_]*/, "");
+
+      const initialBookGenresMap: Record<string, BookCategoryData> = {};
+      if (bookTitle && (cat1 || cat2 || cat3)) {
+        initialBookGenresMap[bookTitle] = { cat1, cat2, cat3 };
+      }
+
+      const genresList = [cat1, cat2, cat3].filter(Boolean);
+      const initialGenresText = genresList.length > 0
+        ? genresList.join("\n")
+        : "Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks";
+
       return {
         id: `tab_${timestamp}_${index}`,
         title1: bookTitle,
@@ -1277,7 +1308,7 @@ export const useBookState = () => {
         bookListText: bookTitle,
         introductionText: "",
         chapterKeywords: "chapter, lesson",
-        genresText: "Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks",
+        genresText: initialGenresText,
         customBlockPhrases: "",
         splitterInput: "",
         reconcilerRawText: "",
@@ -1290,6 +1321,7 @@ export const useBookState = () => {
         authorEditorContent: "",
         bookIntroMap: {},
         bookContentMap: bookTitle ? { [bookTitle]: "" } : {},
+        bookGenresMap: initialBookGenresMap,
         activeSubTab: "formatter",
       };
     });
@@ -1324,6 +1356,7 @@ export const useBookState = () => {
               detectedChapters,
               bookIntroMap,
               bookContentMap,
+              bookGenresMap,
               activeSubTab: activeTab,
               editorContent: currentEditorContent,
               authorEditorContent: currentAuthorEditorContent,
@@ -1365,6 +1398,7 @@ export const useBookState = () => {
         setDetectedChapters([]);
         setBookIntroMap({});
         setBookContentMap(firstNewTab.bookContentMap);
+        setBookGenresMap(firstNewTab.bookGenresMap || {});
         setActiveTab("formatter");
 
         if (editor) {

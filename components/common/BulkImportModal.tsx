@@ -129,26 +129,26 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
             {/* Books Input */}
             <div className="flex flex-col space-y-1.5">
               <label className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider flex justify-between">
-                <span>Danh sách sách tương ứng (mỗi dòng một sách)</span>
+                <span>Danh sách Sách & Thể loại (Paste nguyên cả hàng từ Sheet)</span>
                 {booksCount > 0 && (
                   <span className="text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.2 rounded text-[9px]">
-                    {booksCount} cuốn
+                    {booksCount} dòng
                   </span>
                 )}
               </label>
               <textarea
                 value={booksInput}
                 onChange={(e) => setBooksInput(e.target.value)}
-                placeholder="Ví dụ:&#10;English Grammar Book&#10;Vocabulary Builder&#10;Reading Comprehension"
+                placeholder="Dán từ Sheet (Tên sách [Tab] Thể loại 1 [Tab] Thể loại 2 [Tab] Thể loại 3)&#10;Ví dụ:&#10;The Warm Path to Self-Care&#9;SELF-HELP / Personal Growth&#9;HEALTH / Living&#10;The Warm Path to Mindfulness&#9;GARDENING / General&#9;HOUSE & HOME / General"
                 className="w-full h-64 p-3 bg-gray-50 dark:bg-[#0d1117] border border-gray-250 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-gray-900 dark:text-slate-100 font-mono resize-none leading-relaxed"
               />
             </div>
           </div>
 
           {/* Guide tip */}
-          <div className="p-3 bg-blue-50/55 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 rounded-xl text-[11px] leading-relaxed">
-            💡 <strong>Quy luật khớp:</strong> Tác giả ở dòng thứ nhất sẽ tương ứng với sách ở dòng thứ nhất, tương tự cho các dòng tiếp theo.
-            Nếu bạn muốn bỏ qua sách của một tác giả nào đó, hãy để trống dòng sách tương ứng tại vị trí đó.
+          <div className="p-3 bg-blue-50/55 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 rounded-xl text-[11px] leading-relaxed space-y-1">
+            <p>💡 <strong>Dán trực tiếp từ Sheet:</strong> Bạn chỉ cần quét chọn cả khối gồm <strong>Cột Tên Sách + 3 Cột Thể loại</strong> trong Google Sheet rồi Dán vào đây.</p>
+            <p className="text-[10.5px] opacity-90">Hệ thống sẽ tự động bóc tách Tên sách và tự điền đủ 3 Thể loại tương ứng cho tác giả đó trong Workspace!</p>
           </div>
 
           {/* Clear existing tabs option */}
