@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Trash2, Copy, Check, TableProperties, ExternalLink, Settings, Plus, X, RefreshCw, Shuffle, Database, AlertCircle, Sparkles, RotateCcw } from "lucide-react";
 import { generateTOTP } from "@/utils/totp";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "@/utils/toast";
 
 interface SplitterTabProps {
   splitterInput: string;
@@ -619,13 +620,13 @@ export const SplitterTab: React.FC<SplitterTabProps> = ({
           updateTabCards(matchingSheetCards, tabCompletedCards);
         }
         
-        alert(`Đồng bộ thành công! Đã tải về và cập nhật lại danh sách thẻ từ Sheets.`);
+        toast.success(`Đồng bộ thành công! Đã tải về và cập nhật lại danh sách thẻ từ Sheets.`);
       } else {
-        alert(`Lỗi đồng bộ: ${data.error || "Không rõ nguyên nhân"}`);
+        toast.error(`Lỗi đồng bộ: ${data.error || "Không rõ nguyên nhân"}`);
       }
     } catch (error) {
       console.error("Sync error:", error);
-      alert("Lỗi kết nối đến Google Sheets Apps Script. Vui lòng kiểm tra xem URL đã đúng chưa và Web App đã được triển khai cấu hình quyền truy cập (Anyone) hay chưa.");
+      toast.error("Lỗi kết nối đến Google Sheets Apps Script. Vui lòng kiểm tra lại URL.");
     } finally {
       setIsSyncing(false);
     }
@@ -634,11 +635,11 @@ export const SplitterTab: React.FC<SplitterTabProps> = ({
   // Assign 5 random cards to active author from Google Sheets (server-side lock)
   const handleAssignCards = async () => {
     if (!appsScriptUrl) {
-      alert("Vui lòng cấu hình URL Google Apps Script Web App trước!");
+      toast.warning("Vui lòng cấu hình URL Google Apps Script Web App trước!");
       return;
     }
     if (!targetEmail) {
-      alert("Không phát hiện được Email. Vui lòng dán hàng dữ liệu có chứa mail hoặc nhập thủ công Email trước khi bốc thẻ!");
+      toast.warning("Không phát hiện được Email. Vui lòng dán hàng dữ liệu có chứa mail!");
       return;
     }
     
@@ -654,9 +655,10 @@ export const SplitterTab: React.FC<SplitterTabProps> = ({
       if (data && data.success) {
         const picked = data.cards || [];
         if (picked.length === 0) {
-          alert("Không còn thẻ trống nào trong tab Thẻ để gán!");
+          toast.warning("Không còn thẻ trống nào trong tab Thẻ để gán!");
         } else {
           updateTabCards([...tabAssignedCards, ...picked], tabCompletedCards);
+          toast.success(`Đã gán thành công ${picked.length} thẻ!`);
           
           // Refresh the local available cards pool
           const refreshRes = await fetch(`${appsScriptUrl}?action=getCards`, { method: "GET", mode: "cors" });
@@ -666,11 +668,11 @@ export const SplitterTab: React.FC<SplitterTabProps> = ({
           }
         }
       } else {
-        alert(`Lỗi gán thẻ: ${data.error || "Không rõ nguyên nhân"}`);
+        toast.error(`Lỗi gán thẻ: ${data.error || "Không rõ nguyên nhân"}`);
       }
     } catch (error) {
       console.error("Assign cards error:", error);
-      alert("Lỗi kết nối đến Google Sheets Apps Script khi gán thẻ. Vui lòng kiểm tra lại URL.");
+      toast.error("Lỗi kết nối đến Google Sheets Apps Script khi gán thẻ. Vui lòng kiểm tra lại URL.");
     } finally {
       setIsSyncing(false);
     }

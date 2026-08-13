@@ -16,6 +16,8 @@ import { ManageRoles } from "@/components/admin/ManageRoles";
 import { ShareModal } from "@/components/common/ShareModal";
 import { BulkImportModal } from "@/components/common/BulkImportModal";
 import { ViewSharedModal } from "@/components/common/ViewSharedModal";
+import { ToastContainer } from "@/components/common/ToastContainer";
+import { toast } from "@/utils/toast";
 import { ref, onValue, set } from "firebase/database";
 import { rtdb } from "@/services/firebaseClient";
 
@@ -240,10 +242,10 @@ export default function Home() {
         customBlockPhrases: share.customBlockPhrases,
       });
       setIsViewSharedOpen(false);
-      alert(`Đã áp dụng thành công dữ liệu tác giả "${targetAuthorName}" vào Workspace để bạn làm việc. Lượt chia sẻ cho người nhận vẫn được giữ nguyên.`);
+      toast.success(`Đã áp dụng thành công tác giả "${targetAuthorName}" vào Workspace.`);
     } catch (err) {
       console.error("Apply share error:", err);
-      alert("Đã xảy ra lỗi khi áp dụng dữ liệu tác giả.");
+      toast.error("Đã xảy ra lỗi khi áp dụng dữ liệu tác giả.");
     }
   };
 
@@ -283,10 +285,10 @@ export default function Home() {
       fetchSharedAuthors();
       fetchNotifications();
       setIsInboxOpen(false);
-      alert(`Đã nhận thành công tác giả "${fullShare.authorName}" vào Workspace của bạn.`);
+      toast.success(`Đã nhận thành công tác giả "${fullShare.authorName}" vào Workspace.`);
     } catch (err) {
       console.error("Import error:", err);
-      alert("Đã xảy ra lỗi khi nhận tác giả.");
+      toast.error("Đã xảy ra lỗi khi nhận tác giả.");
     }
   };
 
@@ -890,6 +892,8 @@ export default function Home() {
           Realtime Auto-Update Active
         </span>
       </footer>
+      {/* Toast Notification Container */}
+      <ToastContainer />
     </div>
   );
 }

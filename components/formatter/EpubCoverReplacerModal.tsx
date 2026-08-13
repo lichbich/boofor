@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { X, Upload, Check, Loader2, AlertCircle, FileImage, Sparkles, RefreshCw, Copy, FileText } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { toast } from "@/utils/toast";
 
 interface EpubCoverReplacerModalProps {
   isOpen: boolean;
@@ -214,7 +215,7 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
   const handleCopyIntro = async (epubName: string) => {
     const htmlText = extractedIntros[epubName];
     if (!htmlText || htmlText.startsWith("Không tìm thấy") || htmlText.startsWith("Lỗi")) {
-      alert("Không có nội dung Introduction hợp lệ để sao chép.");
+      toast.warning("Không có nội dung Introduction hợp lệ để sao chép.");
       return;
     }
 
@@ -223,9 +224,10 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
       await navigator.clipboard.writeText(plainText);
       setCopiedIntroId(epubName);
       setTimeout(() => setCopiedIntroId(null), 2000);
+      toast.success("Đã sao chép Introduction!");
     } catch (err) {
       console.error(err);
-      alert("Lỗi khi sao chép vào bộ nhớ tạm.");
+      toast.error("Lỗi khi sao chép vào bộ nhớ tạm.");
     }
   };
 
@@ -236,7 +238,7 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
     });
 
     if (validMatches.length === 0) {
-      alert("Chưa có Introduction nào được trích xuất thành công để xuất file Word.");
+      toast.warning("Chưa có Introduction nào được trích xuất thành công để xuất file Word.");
       return;
     }
 
@@ -296,10 +298,10 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
       const blob = await response.blob();
       saveAs(blob, "Tong_Hop_Introduction.docx");
       
-      alert(`Đã xuất thành công Introduction của ${validMatches.length} cuốn sách ra file Docx!`);
+      toast.success(`Đã xuất thành công Introduction của ${validMatches.length} cuốn sách ra file Docx!`);
     } catch (err: any) {
       console.error(err);
-      alert(`Đã xảy ra lỗi khi xuất file Word: ${err.message || String(err)}`);
+      toast.error(`Đã xảy ra lỗi khi xuất file Word: ${err.message || String(err)}`);
     } finally {
       setIsExportingAllIntros(false);
     }
@@ -516,7 +518,7 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
   const handleProcessReplacement = async () => {
     const matchedItems = matches.filter(m => m.imageFile !== null) as Array<{ epubItem: EpubFileItem; imageFile: File }>;
     if (matchedItems.length === 0) {
-      alert("Không tìm thấy cặp EPUB và ảnh bìa nào trùng tên nhau để xử lý!");
+      toast.warning("Không tìm thấy cặp EPUB và ảnh bìa nào trùng tên nhau để xử lý!");
       return;
     }
 

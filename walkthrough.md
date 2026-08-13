@@ -18,44 +18,6 @@ Hệ thống `boofor` đã được hoàn thiện nâng cấp các tính năng t
    - Loại bỏ hiện tượng lặp lại tiêu đề "Introduction" do không chèn thêm tiêu đề trùng lắp ở đầu sách.
 4. **Tính năng thay ảnh bìa EPUB hàng loạt (Batch EPUB Cover Replacer)**:
    - Cho phép người dùng thay nhanh ảnh bìa của một loạt file EPUB đã có sẵn bằng các ảnh bìa mới. Hệ thống tự đối khớp thông minh và xuất tệp ZIP đầu ra `EPUB_Da_Thay_Bia.zip`.
-5. **Định dạng Tên File EPUB khi xuất bản đơn lẻ (EPUB Export Filename Format)**:
-   - Khi xuất file EPUB tải về máy, tên file sẽ có dạng `[Tên Sách]-[Tên Tác Giả].epub` (Ví dụ: `Bright Personal Growth Plan-Monica Gomez.epub`).
-6. **Hỗ trợ Kéo thả Ảnh Bìa Sách trực tiếp (Drag & Drop Cover Upload)**:
-   - Hỗ trợ kéo thả file ảnh bìa trực tiếp vào ô nét đứt ở panel "Thông tin Trang Bìa" và tự động nén chất lượng lưu trữ.
-7. **Tự động Đồng bộ hóa khi Load trang / Chuyển Tab / Đổi Email (Auto-sync on Load)**:
-   - Tự động gọi API đồng bộ hóa dọn dẹp thẻ rác ngay khi tải trang, đổi email mục tiêu hoặc đổi tab làm việc.
-8. **Tính năng Áp dụng lại Thông tin đã Chia sẻ vào Workspace (Apply Shared Author Data)**:
-   - **Mô tả**: Cho phép người gửi thông tin tác giả bấm nút **"Áp dụng vào Workspace"** trong modal xem chi tiết lượt chia sẻ (`ViewSharedModal`) hoặc nhấp trực tiếp vào badge số lượt chia sẻ `[Share2] N` trên Tab tác giả.
-   - **Cách hoạt động**: Khi bấm nút, hệ thống sẽ gọi `state.importSharedAuthor` để tạo mới/nạp lại toàn bộ dữ liệu tác giả (bao gồm Danh sách sách, Thể loại, Introductions, Từ khóa Chapter, Cụm từ chặn tùy chỉnh) vào Workspace để người gửi có thể tiếp tục làm việc mà **HOÀN TOÀN GIỮ NGUYÊN** trạng thái và lịch sử chia sẻ cho người nhận.
-
----
-
-## Các Thay đổi đã Thực hiện
-
-### 1. Thay đổi Code Frontend
-
-#### [useBookState.ts](file:///c:/Users/trong/Downloads/Code/boofor/hooks/useBookState.ts)
-- Gỡ bỏ `useEffect` đồng bộ cứng `columns[9]` của `splitterInput`.
-
-#### [page.tsx](file:///c:/Users/trong/Downloads/Code/boofor/app/page.tsx)
-- Truyền `setAuthor={state.setAuthor}` vào component `SplitterTab`.
-- Thêm handler `handleApplySentShare` nạp dữ liệu tác giả chia sẻ vào Workspace bằng `state.importSharedAuthor`.
-- Truyền `onViewShares={handleOpenViewShares}` vào `AuthorTabs`.
-- Truyền `onApplyShare={handleApplySentShare}` vào `ViewSharedModal`.
-
-#### [SplitterTab.tsx](file:///c:/Users/trong/Downloads/Code/boofor/components/tabs/SplitterTab.tsx)
-- Định nghĩa thêm prop `setAuthor` trong `SplitterTabProps`.
-- Thêm `useEffect` phân tích động cấu hình format đang hoạt động và cập nhật giá trị cột `NAME` vào state của tác giả chính xác.
-
-#### [ViewSharedModal.tsx](file:///c:/Users/trong/Downloads/Code/boofor/components/common/ViewSharedModal.tsx)
-- Thêm prop `onApplyShare?: (share: any) => void`.
-- Thêm nút **"Áp dụng vào Workspace"** với icon `Download` cho từng bản ghi dữ liệu đã chia sẻ.
-
-#### [AuthorTabs.tsx](file:///c:/Users/trong/Downloads/Code/boofor/components/common/AuthorTabs.tsx)
-- Thêm prop `onViewShares?: (authorName: string) => void`.
-- Chuyển badge số lượt chia sẻ `[Share2] N` thành button có hiệu ứng hover & nhấp chuột để mở nhanh chi tiết và nạp lại dữ liệu.
-
----
 
 ## Kết quả Kiểm tra & Biên dịch
 

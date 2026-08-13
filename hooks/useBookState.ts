@@ -14,6 +14,7 @@ import { cleanAndFormatHtml, getProcessedHtml } from "@/utils/formatter";
 import { exportToWord, exportToPDF, exportToEPUB } from "@/services/exportService";
 import { dbGet, dbSet } from "@/utils/db";
 import { saveAs } from "file-saver";
+import { toast } from "@/utils/toast";
 
 export interface BookCategoryData {
   cat1: string;
@@ -1007,7 +1008,7 @@ export const useBookState = () => {
       await exportToWord(processedHtml, title1, title2);
     } catch (err) {
       console.error(err);
-      alert("Đã có lỗi xảy ra khi xuất file Word.");
+      toast.error("Đã có lỗi xảy ra khi xuất file Word.");
     } finally {
       setIsExporting(false);
     }
@@ -1022,7 +1023,7 @@ export const useBookState = () => {
       await exportToPDF(processedHtml, title1, title2);
     } catch (err) {
       console.error(err);
-      alert("Đã có lỗi xảy ra khi xuất file PDF.");
+      toast.error("Đã có lỗi xảy ra khi xuất file PDF.");
     } finally {
       setIsExportingPDF(false);
     }
@@ -1036,9 +1037,10 @@ export const useBookState = () => {
       const processedHtml = getProcessedHtml(editor.getHTML(), title1, title2, author);
       const coverBase64 = bookCovers[title1] || undefined;
       await exportToEPUB(processedHtml, title1, title2, author, coverBase64);
+      toast.success("Đã xuất file EPUB thành công.");
     } catch (err) {
       console.error(err);
-      alert("Đã có lỗi xảy ra khi xuất file EPUB.");
+      toast.error("Đã có lỗi xảy ra khi xuất file EPUB.");
     } finally {
       setIsExportingEPUB(false);
     }
@@ -1063,7 +1065,7 @@ export const useBookState = () => {
 
   const triggerBatchExportEPUB = async (selectedTitles: string[]) => {
     if (selectedTitles.length === 0) {
-      alert("Vui lòng chọn ít nhất một cuốn sách để xuất.");
+      toast.warning("Vui lòng chọn ít nhất một cuốn sách để xuất.");
       return;
     }
 
@@ -1127,12 +1129,12 @@ export const useBookState = () => {
 
       let msg = `Đã xuất thành công ${exportedCount} sách ra file ZIP.`;
       if (skippedBooks.length > 0) {
-        msg += `\n\nBỏ qua ${skippedBooks.length} sách do chưa có nội dung:\n- ` + skippedBooks.join("\n- ");
+        msg += ` Bỏ qua ${skippedBooks.length} sách chưa có nội dung.`;
       }
-      alert(msg);
+      toast.success(msg);
     } catch (err: any) {
       console.error(err);
-      alert(`Đã xảy ra lỗi trong quá trình xuất hàng loạt: ${err?.message || err}`);
+      toast.error(`Lỗi xuất hàng loạt: ${err?.message || err}`);
     } finally {
       setIsBatchExporting(false);
       setBatchProgress("");

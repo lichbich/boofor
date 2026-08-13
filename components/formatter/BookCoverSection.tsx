@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { EditorContent, Editor } from "@tiptap/react";
 import { Check, Copy, Upload, X, Loader2, Eye } from "lucide-react";
+import { toast } from "@/utils/toast";
 
 interface BookCoverSectionProps {
   title1: string;
@@ -225,14 +226,11 @@ export const BookCoverSection: React.FC<BookCoverSectionProps> = ({
     await Promise.all(promises);
     setIsBulkUploading(false);
 
-    let message = `Đã xử lý xong hàng loạt ảnh bìa:\n- Khớp thành công: ${matchedCount} sách`;
+    let message = `Đã xử lý xong hàng loạt ảnh bìa: Khớp thành công ${matchedCount} sách.`;
     if (unmatchedNames.length > 0) {
-      message += `\n- Không khớp được ${unmatchedNames.length} ảnh:\n  + ` + unmatchedNames.slice(0, 10).join("\n  + ");
-      if (unmatchedNames.length > 10) {
-        message += `\n  + và ${unmatchedNames.length - 10} ảnh khác...`;
-      }
+      message += ` Không khớp ${unmatchedNames.length} ảnh.`;
     }
-    alert(message);
+    toast.info(message);
     e.target.value = "";
   };
 

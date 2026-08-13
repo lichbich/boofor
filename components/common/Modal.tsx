@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, List, Download, Loader2, CheckSquare2, Square, ChevronDown } from "lucide-react";
 import { saveAs } from "file-saver";
 import { getProcessedHtml } from "@/utils/formatter";
+import { toast } from "@/utils/toast";
 
 interface ModalProps {
   isOpen: boolean;
@@ -114,7 +115,7 @@ export const Modal: React.FC<ModalProps> = ({
   const handleExportSelected = async () => {
     const selectedChs = detectedChapters.filter((ch) => selected[ch]);
     if (selectedChs.length === 0) {
-      alert("Vui lòng chọn ít nhất một mục để xuất.");
+      toast.warning("Vui lòng chọn ít nhất một mục để xuất.");
       return;
     }
 
@@ -199,10 +200,11 @@ export const Modal: React.FC<ModalProps> = ({
       }
 
       setExportProgress("Hoàn thành!");
+      toast.success("Xuất các mục thành công!");
       setTimeout(() => setExportProgress(""), 1500);
     } catch (error) {
       console.error(error);
-      alert("Đã xảy ra lỗi trong quá trình xuất bản.");
+      toast.error("Đã xảy ra lỗi trong quá trình xuất bản.");
     } finally {
       setIsExporting(false);
     }
@@ -211,7 +213,7 @@ export const Modal: React.FC<ModalProps> = ({
   // Export all detected chapters as a simple text table of contents / appendix file
   const handleExportAppendix = () => {
     if (detectedChapters.length === 0) {
-      alert("Không tìm thấy chương nào để xuất.");
+      toast.warning("Không tìm thấy chương nào để xuất.");
       return;
     }
     
