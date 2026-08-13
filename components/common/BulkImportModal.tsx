@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { X, AlertCircle, ListPlus, Check } from "lucide-react";
 
+export interface BookImportItem {
+  title: string;
+  cat1?: string;
+  cat2?: string;
+  cat3?: string;
+}
+
 interface BulkImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (authors: string[], books: string[], clearExisting: boolean) => void;
+  onImport: (authors: string[], books: (string | BookImportItem)[], clearExisting: boolean) => void;
 }
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({
@@ -54,9 +61,34 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     const books = booksInput
       .split("\n")
       .map((line) => line.trim())
-      // Keep empty slots if user deliberately left empty lines to match author order
-      // But trailing empty ones can be trimmed, so we match their length or map directly
-      .map((line) => line.replace(/^\d+[\s\.\-_]*/, "")); // clean prepending numbers if any like "1. Book Title"
+      .map((rawLine) => {
+        const cleaned = rawLine.replace(/^\d+[\s\.\-_]*/, "").trim();
+        if (!cleaned) return { title: "" };
+
+        // Handle Tab separation (Google Sheets / Excel copy-paste)
+        if (cleaned.includes("\t")) {
+          const parts = cleaned.split("\t").map((p) => p.trim());
+          return {
+            title: parts[0] || "",
+            cat1: parts[1] || "",
+            cat2: parts[2] || "",
+            cat3: parts[3] || "",
+          };
+        }
+
+        // Handle Pipe separation
+        if (cleaned.includes("|")) {
+          const parts = cleaned.split("|").map((p) => p.trim());
+          return {
+            title: parts[0] || "",
+            cat1: parts[1] || "",
+            cat2: parts[2] || "",
+            cat3: parts[3] || "",
+          };
+        }
+
+        return { title: cleaned };
+      });
 
     if (authors.length === 0) {
       setError("Vui lòng nhập ít nhất một tác giả.");
@@ -146,9 +178,16 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
           </div>
 
           {/* Guide tip */}
-          <div className="p-3 bg-blue-50/55 dark:bg-blue-950/20 text-blue-800 dark:text-blue-300 rounded-xl text-[11px] leading-relaxed">
-            💡 <strong>Quy luật khớp:</strong> Tác giả ở dòng thứ nhất sẽ tương ứng với sách ở dòng thứ nhất, tương tự cho các dòng tiếp theo.
-            Nếu bạn muốn bỏ qua sách của một tác giả nào đó, hãy để trống dòng sách tương ứng tại vị trí đó.
+          <div className="p-3.5 bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-300 rounded-xl text-[11px] leading-relaxed space-y-1 border border-indigo-100 dark:border-indigo-900/40">
+            <div className="font-bold flex items-center gap-1 text-indigo-700 dark:text-indigo-400">
+              💡 Quy luật khớp & Tự động nhận Thể loại:
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-gray-700 dark:text-slate-300">
+              <li>Tác giả ở dòng 1 sẽ tương ứng với Sách ở dòng 1.</li>
+              <li>
+                <strong>Copy trực tiếp cả hàng từ Sheet / Apps Script:</strong> Bạn có thể copy 4 cột (<strong>Tên sách + Thể loại 1 + Thể loại 2 + Thể loại 3</strong>) và dán trực tiếp vào ô sách bên phải. Hệ thống sẽ tự động bóc tách và gán 3 thể loại vào từng tab tác giả!
+              </li>
+            </ul>
           </div>
 
           {/* Clear existing tabs option */}

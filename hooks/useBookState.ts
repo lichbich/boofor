@@ -1260,7 +1260,11 @@ export const useBookState = () => {
     }, 100);
   };
 
-  const addBatchTabs = (authors: string[], books: string[], clearExisting: boolean) => {
+  const addBatchTabs = (
+    authors: string[],
+    books: (string | { title: string; cat1?: string; cat2?: string; cat3?: string })[],
+    clearExisting: boolean
+  ) => {
     isSwitchingTabRef.current = true;
 
     const currentEditorContent = editor ? editor.getHTML() : "";
@@ -1268,7 +1272,25 @@ export const useBookState = () => {
 
     const timestamp = Date.now();
     const newTabs: AuthorTab[] = authors.map((authorName, index) => {
-      const bookTitle = books[index] || "";
+      const rawBook = books[index];
+      let bookTitle = "";
+      let cat1 = "";
+      let cat2 = "";
+      let cat3 = "";
+
+      if (typeof rawBook === "object" && rawBook !== null) {
+        bookTitle = rawBook.title || "";
+        cat1 = rawBook.cat1 || "";
+        cat2 = rawBook.cat2 || "";
+        cat3 = rawBook.cat3 || "";
+      } else if (typeof rawBook === "string") {
+        bookTitle = rawBook;
+      }
+
+      const genresMapItem: Record<string, BookCategoryData> = bookTitle && (cat1 || cat2 || cat3)
+        ? { [bookTitle]: { cat1, cat2, cat3 } }
+        : {};
+
       return {
         id: `tab_${timestamp}_${index}`,
         title1: bookTitle,
@@ -1290,6 +1312,7 @@ export const useBookState = () => {
         authorEditorContent: "",
         bookIntroMap: {},
         bookContentMap: bookTitle ? { [bookTitle]: "" } : {},
+        bookGenresMap: genresMapItem,
         activeSubTab: "formatter",
       };
     });
@@ -1324,6 +1347,7 @@ export const useBookState = () => {
               detectedChapters,
               bookIntroMap,
               bookContentMap,
+              bookGenresMap,
               activeSubTab: activeTab,
               editorContent: currentEditorContent,
               authorEditorContent: currentAuthorEditorContent,
@@ -1365,6 +1389,7 @@ export const useBookState = () => {
         setDetectedChapters([]);
         setBookIntroMap({});
         setBookContentMap(firstNewTab.bookContentMap);
+        setBookGenresMap(firstNewTab.bookGenresMap || {});
         setActiveTab("formatter");
 
         if (editor) {
