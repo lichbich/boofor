@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Upload, Check, Loader2, Sparkles, AlertCircle, FileImage } from "lucide-react";
+import { Upload, Check, Loader2, Sparkles, AlertCircle, FileImage, FolderArchive } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { EpubCoverReplacerModal } from "./EpubCoverReplacerModal";
+import { EpubCoverExtractorModal } from "./EpubCoverExtractorModal";
 
 interface ProcessedFile {
   name: string;
@@ -14,6 +15,7 @@ export const EpubCleanerSection: React.FC = () => {
   const [files, setFiles] = useState<ProcessedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isReplacerOpen, setIsReplacerOpen] = useState(false);
+  const [isExtractorOpen, setIsExtractorOpen] = useState(false);
 
   const cleanEpubFile = async (file: File): Promise<Blob> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -197,14 +199,24 @@ export const EpubCleanerSection: React.FC = () => {
           <Sparkles className="w-5 h-5 text-indigo-500" />
           <h2 className="text-md font-semibold text-gray-800 dark:text-slate-100">Dọn dẹp Bìa Trắng EPUB đã tạo</h2>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsReplacerOpen(true)}
-          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-55 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/30 text-indigo-650 dark:text-indigo-400 text-xs font-semibold rounded-lg transition-colors border border-indigo-200/50 dark:border-indigo-850 cursor-pointer"
-        >
-          <FileImage className="w-3.5 h-3.5" />
-          Thay ảnh bìa hàng loạt
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsExtractorOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold rounded-lg transition-colors border border-emerald-200/50 dark:border-emerald-800 cursor-pointer shadow-xs"
+          >
+            <FolderArchive className="w-3.5 h-3.5" />
+            Tách ảnh bìa hàng loạt (.zip)
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsReplacerOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-55 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/30 text-indigo-650 dark:text-indigo-400 text-xs font-semibold rounded-lg transition-colors border border-indigo-200/50 dark:border-indigo-850 cursor-pointer shadow-xs"
+          >
+            <FileImage className="w-3.5 h-3.5" />
+            Thay ảnh bìa hàng loạt
+          </button>
+        </div>
       </div>
 
       <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">
@@ -272,6 +284,7 @@ export const EpubCleanerSection: React.FC = () => {
       )}
 
       <EpubCoverReplacerModal isOpen={isReplacerOpen} onClose={() => setIsReplacerOpen(false)} />
+      <EpubCoverExtractorModal isOpen={isExtractorOpen} onClose={() => setIsExtractorOpen(false)} />
     </div>
   );
 };

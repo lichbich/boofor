@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { X, Upload, Check, Loader2, AlertCircle, FileImage, Sparkles, RefreshCw, Copy, FileText } from "lucide-react";
+import { X, Upload, Check, Loader2, AlertCircle, FileImage, Sparkles, RefreshCw, Copy, FileText, FolderArchive } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { toast } from "@/utils/toast";
@@ -160,6 +160,7 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
   const [copiedIntroId, setCopiedIntroId] = useState<string | null>(null);
   const [isParsingIntros, setIsParsingIntros] = useState(false);
   const [isExportingAllIntros, setIsExportingAllIntros] = useState(false);
+  const [isExportingCovers, setIsExportingCovers] = useState(false);
 
   // Load and parse EPUB files immediately into memory (ArrayBuffer + JSZip)
   const loadEpubFiles = async (filesList: File[]) => {
@@ -307,6 +308,37 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
     }
   };
 
+  const handleExportAllCoversZip = async () => {
+    if (epubItems.length === 0) return;
+    setIsExportingCovers(true);
+    try {
+      const zip = new JSZip();
+      let count = 0;
+      for (const item of epubItems) {
+        const coverPath = await findCoverPathInZip(item.zip, item.opfPath);
+        if (coverPath && item.zip.file(coverPath)) {
+          const coverBlob = await item.zip.file(coverPath)!.async("blob");
+          const ext = coverPath.substring(coverPath.lastIndexOf("."));
+          const baseName = item.file.name.replace(/\.epub$/i, "");
+          zip.file(`${baseName}${ext}`, coverBlob);
+          count++;
+        }
+      }
+      if (count === 0) {
+        toast.warning("Không tìm thấy ảnh bìa nào trong các file EPUB đã nạp.");
+        return;
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      saveAs(zipBlob, "Anh_Bia_Goc_EPUB.zip");
+      toast.success(`Đã xuất thành công ${count} ảnh bìa ra file ZIP!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Lỗi xuất file ZIP ảnh bìa: ${err.message || String(err)}`);
+    } finally {
+      setIsExportingCovers(false);
+    }
+  };
+
   // Smart Matching Logic
   const matches: MatchResult[] = useMemo(() => {
     const stripMetadata = (name: string) => {
@@ -398,61 +430,11 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
     }
   };
 
-  // Helper to replace cover image inside zip (Uses pre-parsed JSZip instance)
-  const replaceSingleEpubCover = async (zip: JSZip, opfPath: string, newCoverFile: File): Promise<Blob> => {
-    // 1. Process and compress new image to JPEG
-    const newCoverData = await new Promise<ArrayBuffer>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 600;
-          const MAX_HEIGHT = 800;
-          let width = img.width;
-          let height = img.height;
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height = Math.round((height * MAX_WIDTH) / width);
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width = Math.round((width * MAX_HEIGHT) / height);
-              height = MAX_HEIGHT;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => {
-              if (blob) {
-                const r = new FileReader();
-                r.onload = () => resolve(r.result as ArrayBuffer);
-                r.onerror = reject;
-                r.readAsArrayBuffer(blob);
-              } else {
-                reject(new Error("Lỗi nén ảnh bìa"));
-              }
-            }, "image/jpeg", 0.8);
-          } else {
-            reject(new Error("Lỗi dựng canvas"));
-          }
-        };
-        img.onerror = () => reject(new Error("Định dạng ảnh không đọc được"));
-        img.src = evt.target?.result as string;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(newCoverFile);
-    });
-
+  const findCoverPathInZip = async (zip: JSZip, opfPath: string): Promise<string> => {
     let coverPathInZip = "";
-    if (opfPath) {
+    if (opfPath && zip.file(opfPath)) {
       const opfText = await zip.file(opfPath)!.async("text");
-      const opfDir = opfPath.substring(0, opfPath.lastIndexOf("/")) + "/";
-      const cleanOpfDir = opfDir === "/" ? "" : opfDir;
+      const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/")) + "/" : "";
 
       let coverHref = "";
       const itemRegexes = [
@@ -485,11 +467,10 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
       }
 
       if (coverHref) {
-        coverPathInZip = cleanOpfDir + decodeURIComponent(coverHref);
+        coverPathInZip = opfDir + decodeURIComponent(coverHref);
       }
     }
 
-    // 3. Fallback scan for cover filenames
     if (!coverPathInZip || !zip.file(coverPathInZip)) {
       const fallbackPaths = Object.keys(zip.files).filter(p => 
         /(cover-image|bookcover|cover)\.(jpg|jpeg|png|webp)$/i.test(p)
@@ -499,13 +480,56 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
       }
     }
 
-    // 4. Ultimate fallback: first image in zip
     if (!coverPathInZip || !zip.file(coverPathInZip)) {
       const allImages = Object.keys(zip.files).filter(p => /\.(jpg|jpeg|png|webp)$/i.test(p));
       if (allImages.length > 0) {
         coverPathInZip = allImages[0];
       }
     }
+
+    return coverPathInZip;
+  };
+
+  const replaceSingleEpubCover = async (
+    zip: JSZip,
+    opfPath: string,
+    newCoverFile: File
+  ): Promise<Blob> => {
+    const newCoverData = await new Promise<Uint8Array>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            reject(new Error("Không thể khởi tạo Canvas Context"));
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+          const base64 = dataUrl.split(",")[1];
+          if (base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            resolve(bytes);
+          } else {
+            reject(new Error("Lỗi dựng canvas"));
+          }
+        };
+        img.onerror = () => reject(new Error("Định dạng ảnh không đọc được"));
+        img.src = evt.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(newCoverFile);
+    });
+
+    const coverPathInZip = await findCoverPathInZip(zip, opfPath);
 
     if (coverPathInZip && zip.file(coverPathInZip)) {
       zip.file(coverPathInZip, newCoverData);
@@ -678,6 +702,19 @@ export const EpubCoverReplacerModal: React.FC<EpubCoverReplacerModalProps> = ({
                   <span className="text-green-600 dark:text-green-400 font-bold">
                     Khớp thành công: {matchedCount} / {epubItems.length}
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleExportAllCoversZip}
+                    disabled={isExportingCovers}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-semibold rounded border border-emerald-200/40 cursor-pointer transition-all duration-200 hover:shadow-sm disabled:opacity-50"
+                  >
+                    {isExportingCovers ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <FolderArchive className="w-3 h-3" />
+                    )}
+                    Tải ZIP ảnh bìa hiện tại
+                  </button>
                   {Object.keys(extractedIntros).length > 0 && (
                     <button
                       type="button"

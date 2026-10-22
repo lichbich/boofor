@@ -19,7 +19,15 @@ Hệ thống `boofor` đã được hoàn thiện nâng cấp các tính năng t
 4. **Tính năng thay ảnh bìa EPUB hàng loạt (Batch EPUB Cover Replacer)**:
    - Cho phép người dùng thay nhanh ảnh bìa của một loạt file EPUB đã có sẵn bằng các ảnh bìa mới. Hệ thống tự đối khớp thông minh và xuất tệp ZIP đầu ra `EPUB_Da_Thay_Bia.zip`.
 
+5. **Tính năng Tách & Tải ảnh bìa EPUB hàng loạt (Batch EPUB Cover Extractor)**:
+   - Cho phép người dùng kéo thả hàng loạt file `.epub` vào hệ thống.
+   - Trích xuất 100% ảnh bìa chất lượng gốc bên trong file sách (hỗ trợ cả chuẩn EPUB 3 `properties="cover-image"`, EPUB 2 `meta name="cover"`, định danh ID `cover` và quét thông minh dung lượng).
+   - Tự động hiển thị thư viện ảnh bìa trực quan, kích thước (pixel), dung lượng (KB), hỗ trợ xem phóng to, copy vào clipboard hoặc tải ảnh đơn lẻ.
+   - Nút **Tải tất cả ảnh bìa (.ZIP)** nén toàn bộ ảnh bìa thành file `Anh_Bia_EPUB.zip` với tên ảnh được tự động đổi theo tên từng cuốn sách, hoàn thành chỉ sau vài giây.
+   - Tích hợp thêm nút **Tải ZIP ảnh bìa hiện tại** ngay trong giao diện *Thay ảnh bìa EPUB hàng loạt* giúp người dùng có thể lưu nhanh ảnh bìa cũ mà không cần upload lại.
+
 ## Kết quả Kiểm tra & Biên dịch
 
 - **TypeScript compilation check**: Quá trình biên dịch tĩnh (`npx tsc --noEmit`) đã chạy thành công 100% không có bất kỳ lỗi cú pháp hay kiểu dữ liệu nào.
 - **Production Build check**: Lệnh `npm run build` đã biên dịch thành công 100% không phát sinh lỗi cú pháp hay lỗi kiểu TypeScript.
+
