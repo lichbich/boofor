@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useBookState } from "@/hooks/useBookState";
 import { FormatterTab } from "@/components/tabs/FormatterTab";
 import { PromptTab } from "@/components/tabs/PromptTab";
@@ -9,7 +8,7 @@ import { SplitterTab } from "@/components/tabs/SplitterTab";
 import { ReconcilerTab } from "@/components/tabs/ReconcilerTab";
 import { Modal } from "@/components/common/Modal";
 import { AuthorTabs } from "@/components/common/AuthorTabs";
-import { FileText, Wand2, TableProperties, BookOpen, ShieldAlert, LogOut, Loader2, Clock, Sun, Moon, Bell, Mail, Share2, Inbox, Check, XCircle, Search, X, Sparkles, RefreshCw } from "lucide-react";
+import { FileText, Wand2, TableProperties, BookOpen, ShieldAlert, LogOut, Loader2, Clock, Sun, Moon, Bell, Mail, Share2, Inbox, Check, XCircle, Search, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { ManageRoles } from "@/components/admin/ManageRoles";
@@ -18,22 +17,13 @@ import { BulkImportModal } from "@/components/common/BulkImportModal";
 import { ViewSharedModal } from "@/components/common/ViewSharedModal";
 import { ToastContainer } from "@/components/common/ToastContainer";
 import { toast } from "@/utils/toast";
-import { ref, onValue, set } from "firebase/database";
+import { ref, onValue } from "firebase/database";
 import { rtdb } from "@/services/firebaseClient";
 
 export default function Home() {
-  const router = useRouter();
   const state = useBookState();
   const { user, isLoading, logout, theme, toggleTheme } = useAuth();
 
-  const handleUpdateApp = () => {
-    setHasNewVersion(false);
-    try {
-      router.refresh();
-    } catch (e) {
-      console.error("Router refresh error:", e);
-    }
-  };
   const [activeMainTab, setActiveMainTab] = useState<"book" | "manage-roles">("book");
   const [sharedAuthors, setSharedAuthors] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -46,19 +36,7 @@ export default function Home() {
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isViewSharedOpen, setIsViewSharedOpen] = useState(false);
   const [viewSharedAuthorName, setViewSharedAuthorName] = useState("");
-  const [hasNewVersion, setHasNewVersion] = useState(false);
   const inboxRef = useRef<HTMLDivElement>(null);
-
-  const buildTime = Number(process.env.NEXT_PUBLIC_BUILD_ID || 0);
-  const buildIdFormatted = buildTime > 0
-    ? new Date(buildTime).toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "v1.0.3";
 
   const fetchSharedAuthors = useCallback(async () => {
     const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
@@ -136,69 +114,6 @@ export default function Home() {
       unsubscribeNotif();
     };
   }, [user?.username]);
-
-  // Guaranteed Bulletproof Version Auto-Check (0 Vercel Fast Origin Transfer via CDN & Firebase)
-  useEffect(() => {
-    let isMounted = true;
-    let localBuildId = Number(process.env.NEXT_PUBLIC_BUILD_ID || 0);
-
-    const checkVersionFile = async () => {
-      try {
-        let remoteBuildId = 0;
-        const apiRes = await fetch(`/api/version?t=${Date.now()}`, { cache: "no-store" });
-        if (apiRes.ok) {
-          const apiData = await apiRes.json();
-          remoteBuildId = Number(apiData.buildId || 0);
-        } else {
-          const res = await fetch(`/version.json?t=${Date.now()}`, { cache: "no-store" });
-          if (res.ok) {
-            const data = await res.json();
-            remoteBuildId = Number(data.buildId || 0);
-          }
-        }
-
-        if (remoteBuildId > 0) {
-          if (localBuildId === 0) {
-            localBuildId = remoteBuildId;
-          } else if (remoteBuildId > localBuildId) {
-            if (isMounted) setHasNewVersion(true);
-          }
-        }
-      } catch (e) {
-        console.error("Version check error:", e);
-      }
-    };
-
-    // Initial check on page load
-    checkVersionFile();
-
-    // Check on window focus and tab visibility change
-    const handleFocus = () => checkVersionFile();
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-
-    // Periodic check every 15 seconds
-    const interval = setInterval(checkVersionFile, 15000);
-
-    // Firebase RTDB Instant WebSocket push
-    const versionRef = ref(rtdb, "boofor/system/app_version");
-    const unsubscribeVersion = onValue(versionRef, (snapshot) => {
-      const remoteVer = Number(snapshot.val() || 0);
-      if (remoteVer > localBuildId && localBuildId > 0) {
-        if (isMounted) setHasNewVersion(true);
-      } else if (localBuildId > remoteVer && localBuildId > 0) {
-        set(versionRef, localBuildId).catch(() => {});
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-      clearInterval(interval);
-      unsubscribeVersion();
-    };
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -421,23 +336,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0d1117] p-4 md:p-8 font-sans transition-colors duration-300">
-      {/* Floating Live Version Update Notification (0 Vercel Fast Origin Transfer) */}
-      {hasNewVersion && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[99999] bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 text-white px-6 py-3 rounded-2xl shadow-[0_10px_38px_rgba(79,70,229,0.5)] border border-indigo-300/50 flex items-center gap-4 text-xs font-bold transition-all duration-300 backdrop-blur-xl animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-            <span className="text-sm">🚀 Hệ thống vừa có bản cập nhật mới!</span>
-          </div>
-          <button
-            onClick={handleUpdateApp}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-indigo-700 hover:bg-amber-300 hover:text-indigo-950 rounded-xl font-extrabold transition-all shadow-md cursor-pointer active:scale-95"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Cập nhật ngay
-          </button>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto">
         {/* Top user profile header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 bg-white dark:bg-[#161b22] px-5 py-3 rounded-xl shadow-sm border border-gray-200 transition-colors duration-300 animate-fadeIn">
@@ -893,18 +791,9 @@ export default function Home() {
         onApplyShare={handleApplySentShare}
       />
 
-      {/* Thin Minimalist Version Footer */}
+      {/* Minimalist Footer */}
       <footer className="mt-8 pt-4 pb-2 border-t border-gray-200/60 dark:border-slate-800/60 text-center flex flex-wrap items-center justify-center gap-2 text-[11px] text-gray-400 dark:text-slate-500 font-mono">
         <span>Boofor Studio</span>
-        <span>•</span>
-        <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-md font-semibold text-[10px]">
-          v1.0.3 ({buildIdFormatted})
-        </span>
-        <span>•</span>
-        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          Realtime Auto-Update Active
-        </span>
       </footer>
       {/* Toast Notification Container */}
       <ToastContainer />
