@@ -207,12 +207,31 @@ body {
   stroke: #1e1b4b !important;
 }
 
-/* Custom Active Author Tab styling for Dark Mode to ensure amber-500 color */
-.dark .author-tab-active {
+/* Custom Active Author Tab styling for Dark Mode to ensure amber-500 color when not ready */
+.dark .author-tab-active:not(.author-tab-ready) {
   color: #f59e0b !important;
 }
 
-.dark .author-tab-active svg {
+.dark .author-tab-active:not(.author-tab-ready) > svg {
   color: #f59e0b !important;
   stroke: #f59e0b !important;
+}
+
+/* Ready-to-share Author Tab green styling (both Light and Dark Mode) */
+.author-tab-ready {
+  color: #059669 !important;
+}
+
+.author-tab-ready > svg {
+  color: #059669 !important;
+  stroke: #059669 !important;
+}
+
+.dark .author-tab-ready {
+  color: #34d399 !important;
+}
+
+.dark .author-tab-ready > svg {
+  color: #34d399 !important;
+  stroke: #34d399 !important;
 }

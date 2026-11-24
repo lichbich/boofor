@@ -63,6 +63,7 @@ interface FormatterTabProps {
   authorInfoMap: Record<string, string>;
   genresText: string;
   setGenresText: (val: string) => void;
+  bookIntroMap?: Record<string, string>;
   bookContentMap: Record<string, string>;
   bookCovers: Record<string, string>;
   saveBookCover: (bookTitle: string, base64Data: string) => void;
@@ -116,6 +117,7 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
   authorInfoMap,
   genresText,
   setGenresText,
+  bookIntroMap,
   bookContentMap,
   bookCovers,
   saveBookCover,
@@ -268,6 +270,7 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
           handleSelectBook={handleSelectBook}
           title1={title1}
           title2={title2}
+          bookIntroMap={bookIntroMap}
           bookContentMap={bookContentMap}
           bookCovers={bookCovers}
           isBatchExporting={isBatchExporting}

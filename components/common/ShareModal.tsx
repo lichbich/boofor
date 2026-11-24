@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { X, Search, Send, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { X, Search, Send, Loader2, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { AuthorTab } from "@/hooks/useBookState";
+import { checkAuthorShareReadiness } from "@/utils/epubIntroExtractor";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -48,7 +49,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           if (!res.ok) {
             throw new Error(data.error || "Không thể tải danh sách tài khoản");
           }
-          // Filter out current user
           const filtered = (data.users || []).filter((u: string) => u !== currentUsername);
           setUsers(filtered);
         } catch (err: any) {
@@ -62,6 +62,41 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       fetchUsers();
     }
   }, [isOpen, currentUsername]);
+
+  const singleReadiness = useMemo(() => {
+    if (isShareAll || !authorTab) return null;
+    return checkAuthorShareReadiness({
+      author: authorTab.author,
+      bookListText: authorTab.bookListText,
+      bookIntroMap: authorTab.bookIntroMap,
+      bookGenresMap: authorTab.bookGenresMap,
+      genresText: authorTab.genresText,
+    });
+  }, [isShareAll, authorTab]);
+
+  const shareAllSummary = useMemo(() => {
+    if (!isShareAll) return null;
+    const validAuthors = allTabs.filter(
+      (tab) => tab.author && tab.author.trim() !== "" && tab.author.trim() !== "Tác giả mới"
+    );
+    const checks = validAuthors.map((tab) => ({
+      author: tab.author,
+      readiness: checkAuthorShareReadiness({
+        author: tab.author,
+        bookListText: tab.bookListText,
+        bookIntroMap: tab.bookIntroMap,
+        bookGenresMap: tab.bookGenresMap,
+        genresText: tab.genresText,
+      }),
+    }));
+    const readyCount = checks.filter((c) => c.readiness.isReady).length;
+    const incompleteAuthors = checks.filter((c) => !c.readiness.isReady);
+    return {
+      totalValid: validAuthors.length,
+      readyCount,
+      incompleteAuthors,
+    };
+  }, [isShareAll, allTabs]);
 
   if (!isOpen || (!authorTab && !isShareAll)) return null;
 
@@ -89,6 +124,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         }
         payload.authors = authorsToShare.map((tab) => ({
           authorName: tab.author,
+          authorInfo: tab.authorEditorContent || "",
           bookListText: tab.bookListText || "",
           bookIntroMap: tab.bookIntroMap || {},
           bookGenresMap: tab.bookGenresMap || {},
@@ -101,11 +137,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           throw new Error("Không có thông tin tác giả để chia sẻ.");
         }
         payload.authorName = authorTab.author || "Tác giả mới";
+        payload.authorInfo = authorTab.authorEditorContent || "";
         payload.bookListText = authorTab.bookListText || "";
         payload.bookIntroMap = authorTab.bookIntroMap || {};
         payload.bookGenresMap = authorTab.bookGenresMap || {};
         payload.genresText = authorTab.genresText || "";
-        payload.chapterKeywords = authorTab.chapterKeywords || "";
+        payload.chapterKeywords = authorTab.chapterKeywords || "chapter, lesson";
         payload.customBlockPhrases = authorTab.customBlockPhrases || "";
       }
 
@@ -166,7 +203,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="p-5 flex-1 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="p-5 flex-1 space-y-4 max-h-[65vh] overflow-y-auto">
           {success ? (
             <div className="flex flex-col items-center justify-center py-6 text-center space-y-2">
               <CheckCircle2 className="w-12 h-12 text-emerald-500 animate-bounce" />
@@ -183,6 +220,83 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
           ) : (
             <>
+              {/* Readiness Check Banner */}
+              {!isShareAll && singleReadiness && (
+                singleReadiness.isReady ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">
+                        Đầy đủ thông tin an toàn để chia sẻ!
+                      </span>
+                      <span className="text-[11px] opacity-90">
+                        Đã trích xuất đủ {singleReadiness.introCount}/{singleReadiness.totalBooks} sách có Introduction &amp; Thể loại.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block">
+                          Cảnh báo: Chưa đủ thông tin tất cả các sách!
+                        </span>
+                        <span className="text-[11px]">
+                          {singleReadiness.totalBooks === 0
+                            ? "Tác giả này chưa có danh sách sách nào."
+                            : `Mới có ${singleReadiness.introCount}/${singleReadiness.totalBooks} sách có Introduction (thiếu ${singleReadiness.missingIntroBooks.length} sách).`}
+                        </span>
+                      </div>
+                    </div>
+                    {singleReadiness.missingIntroBooks.length > 0 && (
+                      <div className="pl-6 text-[10px] text-amber-700 dark:text-amber-400/90 max-h-20 overflow-y-auto space-y-0.5">
+                        {singleReadiness.missingIntroBooks.map((b, i) => (
+                          <div key={i} className="truncate">• {b}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+
+              {isShareAll && shareAllSummary && shareAllSummary.totalValid > 0 && (
+                shareAllSummary.incompleteAuthors.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">
+                        Tất cả {shareAllSummary.totalValid}/{shareAllSummary.totalValid} tác giả đã đầy đủ thông tin!
+                      </span>
+                      <span className="text-[11px] opacity-90">
+                        Mọi cuốn sách đều đã có đầy đủ Introduction để gửi đi an toàn.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-xs space-y-1.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold block">
+                          Có {shareAllSummary.incompleteAuthors.length}/{shareAllSummary.totalValid} tác giả chưa đủ Introduction!
+                        </span>
+                        <span className="text-[11px]">
+                          Đã hoàn tất: {shareAllSummary.readyCount} tác giả (màu xanh lá).
+                        </span>
+                      </div>
+                    </div>
+                    <div className="pl-6 text-[10px] text-amber-700 dark:text-amber-400/90 max-h-20 overflow-y-auto space-y-0.5">
+                      {shareAllSummary.incompleteAuthors.map((item, i) => (
+                        <div key={i} className="truncate">
+                          • <strong>{item.author}</strong> ({item.readiness.introCount}/{item.readiness.totalBooks} intro)
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+
               {error && (
                 <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-xs flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />

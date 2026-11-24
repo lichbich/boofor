@@ -214,7 +214,8 @@ export default function Home() {
 
   const handleOpenShareModal = (tab: any) => {
     setIsShareAll(false);
-    setAuthorToShare(tab);
+    const preparedTab = state.prepareTabForShare(tab) || tab;
+    setAuthorToShare(preparedTab);
     setIsShareModalOpen(true);
   };
 
@@ -234,9 +235,12 @@ export default function Home() {
       const targetAuthorName = share.authorName || viewSharedAuthorName || "Tác giả mới";
       state.importSharedAuthor({
         authorName: targetAuthorName,
+        authorInfo: share.authorInfo,
         bookListText: share.bookListText,
         bookIntroMap: share.bookIntroMap,
+        bookIntroMapJson: share.bookIntroMapJson,
         bookGenresMap: share.bookGenresMap,
+        bookGenresMapJson: share.bookGenresMapJson,
         genresText: share.genresText,
         chapterKeywords: share.chapterKeywords,
         customBlockPhrases: share.customBlockPhrases,
@@ -265,9 +269,12 @@ export default function Home() {
 
       state.importSharedAuthor({
         authorName: fullShare.authorName,
+        authorInfo: fullShare.authorInfo,
         bookListText: fullShare.bookListText,
         bookIntroMap: fullShare.bookIntroMap,
+        bookIntroMapJson: fullShare.bookIntroMapJson,
         bookGenresMap: fullShare.bookGenresMap,
+        bookGenresMapJson: fullShare.bookGenresMapJson,
         genresText: fullShare.genresText,
         chapterKeywords: fullShare.chapterKeywords,
         customBlockPhrases: fullShare.customBlockPhrases,
@@ -648,6 +655,10 @@ export default function Home() {
               tabs={state.tabs}
               activeTabId={state.activeTabId}
               activeAuthor={state.author}
+              activeBookListText={state.bookListText}
+              activeBookIntroMap={state.bookIntroMap}
+              activeBookGenresMap={state.bookGenresMap}
+              activeGenresText={state.genresText}
               onSelectTab={state.switchTab}
               onAddTab={state.addTab}
               onDeleteTab={state.deleteTab}
@@ -747,6 +758,7 @@ export default function Home() {
                 authorInfoMap={state.authorInfoMap}
                 genresText={state.genresText}
                 setGenresText={state.setGenresText}
+                bookIntroMap={state.bookIntroMap}
                 bookContentMap={state.bookContentMap}
                 bookCovers={state.bookCovers}
                 saveBookCover={state.saveBookCover}
@@ -855,7 +867,7 @@ export default function Home() {
           setIsShareAll(false);
         }}
         authorTab={authorToShare}
-        allTabs={state.tabs}
+        allTabs={isShareModalOpen ? state.prepareAllTabsForShare() : state.tabs}
         isShareAll={isShareAll}
         currentUsername={user.username}
       />

@@ -54,11 +54,64 @@ export const DEFAULT_AI_PHRASES = [
   "continue",
 ];
 
+const INTRO_HEADING_REGEX =
+  /^(?:introduction|giới\s*thiệu|lời\s*nói\s*đầu|lời\s*mở\s*đầu|mở\s*đầu|preface|foreword|prologue)(?:\s*$|[\s:\-–—.])/i;
+
+const CONCLUSION_HEADING_REGEX = /^(?:conclusion|kết\s*luận|epilogue|afterword)\b/i;
+
 export interface FormatResult {
   cleanedHtml: string;
   introductionText: string;
   detectedChapters: string[];
 }
+
+const isAiMetaStatement = (
+  lowerText: string,
+  wordCount: number,
+  userPhrases: string[]
+): boolean => {
+  // User-configured custom block phrases always match directly
+  if (userPhrases.some((phrase) => lowerText.includes(phrase))) {
+    return true;
+  }
+
+  for (const phrase of DEFAULT_AI_PHRASES) {
+    if (!lowerText.includes(phrase)) continue;
+
+    // Guard short single/generic English words so real prose paragraphs aren't deleted
+    if (phrase === "continue") {
+      if (wordCount <= 12 || /^continue\b/i.test(lowerText)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (phrase === "certainly" || phrase === "absolutely") {
+      if (wordCount <= 30 && /^(?:certainly|absolutely)\b/i.test(lowerText)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (phrase === "just say") {
+      if (wordCount <= 30) {
+        return true;
+      }
+      continue;
+    }
+
+    if (phrase === "would you like to" || phrase === "please confirm") {
+      if (wordCount <= 40) {
+        return true;
+      }
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+};
 
 /**
  * Parses the raw HTML content from AI Chat, filters out unwanted AI meta statements,
@@ -76,20 +129,71 @@ export const cleanAndFormatHtml = (
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
 
+  // Unwrap generic wrapper containers (e.g. <div class="markdown prose"> pasted from AI chat)
+  let unwrapGuard = 0;
+  while (unwrapGuard < 5) {
+    const wrappers = Array.from(
+      doc.body.querySelectorAll("div, section, article, main")
+    );
+    let unwrappedAny = false;
+    for (const wrapper of wrappers) {
+      if (wrapper.classList.contains("page-break")) continue;
+      const hasBlockChild = Array.from(wrapper.children).some((c) =>
+        ["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "TABLE", "BLOCKQUOTE", "DIV", "SECTION"].includes(
+          c.tagName
+        )
+      );
+      if (hasBlockChild) {
+        while (wrapper.firstChild) {
+          wrapper.parentNode?.insertBefore(wrapper.firstChild, wrapper);
+        }
+        wrapper.remove();
+        unwrappedAny = true;
+      }
+    }
+    if (!unwrappedAny) break;
+    unwrapGuard++;
+  }
+
+  // Split <p><strong>Introduction</strong><br/>...</p> if heading and body were merged by <br>
+  Array.from(doc.body.querySelectorAll("p")).forEach((p) => {
+    const firstChild = p.firstElementChild;
+    if (
+      firstChild &&
+      ["STRONG", "B"].includes(firstChild.tagName) &&
+      firstChild.nextElementSibling?.tagName === "BR"
+    ) {
+      const headingCandidate = (firstChild.textContent || "").trim();
+      if (
+        headingCandidate.split(/\s+/).length < 12 &&
+        INTRO_HEADING_REGEX.test(headingCandidate)
+      ) {
+        const h1 = doc.createElement("h1");
+        h1.textContent = headingCandidate;
+        p.parentNode?.insertBefore(h1, p);
+        firstChild.nextElementSibling.remove();
+        firstChild.remove();
+      }
+    }
+  });
+
   const vietnameseRegex = /[àáãạảăắằẳẵặâấầẩẫậèéẹẻẽêềếểễệđìíĩỉịòóõọỏôốồổỗộơớờởỡợùúũũụủưứừửữựỳýỹỷỵ]/i;
 
   const userPhrases = customBlockPhrases
     .split("\n")
     .map((p) => p.trim().toLowerCase())
     .filter((p) => p.length > 0);
-  const allAiPhrases = [...DEFAULT_AI_PHRASES, ...userPhrases];
 
-  const chapterRegexStr = chapterKeywords
-    .split(",")
-    .map((k) => k.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .filter((k) => k.length > 0)
-    .join("|") || "chapter";
-  const chapterRegex = new RegExp(`^(${chapterRegexStr})\\s+\\d+`, "i");
+  const chapterRegexStr =
+    chapterKeywords
+      .split(",")
+      .map((k) => k.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .filter((k) => k.length > 0)
+      .join("|") || "chapter";
+  const chapterRegex = new RegExp(
+    `^(${chapterRegexStr})\\s+(?:\\d+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten)\\b`,
+    "i"
+  );
 
   const allElementsArr = Array.from(doc.body.querySelectorAll("p, h1, h2, h3, h4, h5, h6, li"));
 
@@ -105,7 +209,7 @@ export const cleanAndFormatHtml = (
     const lowerText = text.toLowerCase();
     const wordCount = text.split(/\s+/).length;
 
-    if (el.tagName !== "LI" && /^(conclusion|kết luận)\b/i.test(lowerText) && wordCount < 15) {
+    if (el.tagName !== "LI" && CONCLUSION_HEADING_REGEX.test(lowerText) && wordCount < 15) {
       lastConclusionElement = el;
       break;
     }
@@ -138,15 +242,19 @@ export const cleanAndFormatHtml = (
 
     if (!text) return;
 
-    // Filter out Vietnamese content if any
-    if (vietnameseRegex.test(text)) {
+    const wordCount = text.split(/\s+/).length;
+
+    // Filter out Vietnamese content if any (except explicit Vietnamese headings like Giới thiệu / Kết luận if used)
+    if (
+      vietnameseRegex.test(text) &&
+      !(wordCount < 15 && (INTRO_HEADING_REGEX.test(text) || CONCLUSION_HEADING_REGEX.test(text)))
+    ) {
       el.remove();
       return;
     }
 
-    // Filter out AI sentences
-    const hasAiPhrase = allAiPhrases.some((phrase) => lowerText.includes(phrase));
-    if (hasAiPhrase) {
+    // Filter out AI meta statements
+    if (isAiMetaStatement(lowerText, wordCount, userPhrases)) {
       el.remove();
       return;
     }
@@ -156,7 +264,6 @@ export const cleanAndFormatHtml = (
       return;
     }
 
-    const wordCount = text.split(/\s+/).length;
     const isHeadingCandidate = wordCount < 15;
 
     const isChapterHeading = el.tagName !== "LI" && chapterRegex.test(lowerText) && wordCount < 30;
@@ -165,7 +272,7 @@ export const cleanAndFormatHtml = (
     }
 
     let isMainIntro = false;
-    if (el.tagName !== "LI" && /^(introduction|giới thiệu|lời nói đầu)\b/i.test(lowerText) && isHeadingCandidate) {
+    if (el.tagName !== "LI" && INTRO_HEADING_REGEX.test(text) && isHeadingCandidate) {
       if (!hasSeenIntro && !hasSeenChapter) {
         isMainIntro = true;
         hasSeenIntro = true;
@@ -253,7 +360,7 @@ export const cleanAndFormatHtml = (
     }
   });
 
-  // Extract Introduction text
+  // Extract Introduction text reliably
   let isRecordingIntro = false;
   let hasFinishedIntro = false;
   const extractedIntro: string[] = [];
@@ -262,19 +369,53 @@ export const cleanAndFormatHtml = (
   for (const el of cleanedNodes) {
     const text = el.textContent?.trim() || "";
     const lower = text.toLowerCase();
+    const wordCount = text ? text.split(/\s+/).length : 0;
 
-    if (chapterRegex.test(lower)) {
-      isRecordingIntro = false;
-      hasFinishedIntro = true;
+    const isChapterStop =
+      chapterRegex.test(lower) ||
+      (CONCLUSION_HEADING_REGEX.test(lower) && wordCount < 15) ||
+      (isRecordingIntro && el.tagName === "H1");
+
+    if (isChapterStop) {
+      if (isRecordingIntro || chapterRegex.test(lower)) {
+        isRecordingIntro = false;
+        hasFinishedIntro = true;
+      }
     } else if (
-      /introduction/i.test(lower) &&
-      text.split(/\s+/).length < 15 &&
       !hasFinishedIntro &&
-      !isRecordingIntro
+      !isRecordingIntro &&
+      wordCount > 0 &&
+      wordCount < 15 &&
+      (INTRO_HEADING_REGEX.test(text) || /^introduction\b/i.test(lower))
     ) {
       isRecordingIntro = true;
     } else if (isRecordingIntro && text) {
       extractedIntro.push(el.outerHTML);
+    }
+  }
+
+  // Fallback: If there was no explicit "Introduction" heading, extract prose paragraphs before Chapter 1
+  if (extractedIntro.length === 0) {
+    const firstChapterIdx = cleanedNodes.findIndex((el) => {
+      const t = el.textContent?.trim().toLowerCase() || "";
+      return chapterRegex.test(t) || el.tagName === "H1";
+    });
+
+    if (firstChapterIdx > 0) {
+      const preChapterNodes = cleanedNodes.slice(0, firstChapterIdx);
+      const candidateBlocks = preChapterNodes.filter((el, idx) => {
+        const t = el.textContent?.trim() || "";
+        if (!t) return false;
+        const wc = t.split(/\s+/).length;
+        // Skip short leading book title / author lines at the very top
+        if (idx < 2 && wc < 12 && !/[.!?]$/.test(t)) return false;
+        return true;
+      });
+
+      const combinedText = candidateBlocks.map((b) => b.textContent || "").join(" ").trim();
+      if (combinedText.length >= 80) {
+        candidateBlocks.forEach((b) => extractedIntro.push(b.outerHTML));
+      }
     }
   }
 
@@ -284,7 +425,7 @@ export const cleanAndFormatHtml = (
 
   return {
     cleanedHtml: doc.body.innerHTML,
-    introductionText: extractedIntro.join(""),
+    introductionText: extractedIntro.join("\n\n"),
     detectedChapters,
   };
 };

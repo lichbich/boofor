@@ -29,6 +29,32 @@ async function getAuthenticatedUser(req: Request): Promise<string | null> {
   }
 }
 
+// Sanitize map keys for Firebase Realtime Database (keys cannot be "" or contain . # $ / [ ])
+function sanitizeMapForRtdb<T>(rawMap: Record<string, T> | undefined): {
+  rtdbSafeMap: Record<string, T>;
+  exactJson: string;
+} {
+  const cleanExact: Record<string, T> = {};
+  const rtdbSafeMap: Record<string, T> = {};
+
+  if (rawMap && typeof rawMap === "object") {
+    for (const [key, val] of Object.entries(rawMap)) {
+      const trimmedKey = key.trim();
+      if (!trimmedKey || val === undefined) continue;
+      cleanExact[trimmedKey] = val;
+      const safeKey = trimmedKey.replace(/[.#$/[\]]/g, "_");
+      if (safeKey) {
+        rtdbSafeMap[safeKey] = val;
+      }
+    }
+  }
+
+  return {
+    rtdbSafeMap,
+    exactJson: JSON.stringify(cleanExact),
+  };
+}
+
 // 1. POST: Share an author with another user
 export async function POST(req: Request) {
   try {
@@ -63,6 +89,7 @@ export async function POST(req: Request) {
       }
       authorsToShare = [{
         authorName: body.authorName,
+        authorInfo: body.authorInfo || "",
         bookListText: body.bookListText || "",
         bookIntroMap: body.bookIntroMap || {},
         bookGenresMap: body.bookGenresMap || {},
@@ -82,14 +109,20 @@ export async function POST(req: Request) {
     const sharePromises = authorsToShare.map(async (author: any) => {
       const newShareRef = recipientSharesRef.push();
       const shareId = newShareRef.key;
+
+      const introSanitized = sanitizeMapForRtdb(author.bookIntroMap);
+      const genresSanitized = sanitizeMapForRtdb(author.bookGenresMap);
       
       const setSharePromise = newShareRef.set({
         id: shareId,
         sender,
         authorName: author.authorName,
+        authorInfo: author.authorInfo || "",
         bookListText: author.bookListText || "",
-        bookIntroMap: author.bookIntroMap || {},
-        bookGenresMap: author.bookGenresMap || {},
+        bookIntroMap: introSanitized.rtdbSafeMap,
+        bookIntroMapJson: introSanitized.exactJson,
+        bookGenresMap: genresSanitized.rtdbSafeMap,
+        bookGenresMapJson: genresSanitized.exactJson,
         genresText: author.genresText || "",
         chapterKeywords: author.chapterKeywords || "chapter, lesson",
         customBlockPhrases: author.customBlockPhrases || "",
@@ -100,11 +133,14 @@ export async function POST(req: Request) {
         id: shareId,
         recipient: recipientUsername,
         authorName: author.authorName,
+        authorInfo: author.authorInfo || "",
         status: "pending",
         sharedAt: nowStr,
         bookListText: author.bookListText || "",
-        bookIntroMap: author.bookIntroMap || {},
-        bookGenresMap: author.bookGenresMap || {},
+        bookIntroMap: introSanitized.rtdbSafeMap,
+        bookIntroMapJson: introSanitized.exactJson,
+        bookGenresMap: genresSanitized.rtdbSafeMap,
+        bookGenresMapJson: genresSanitized.exactJson,
         genresText: author.genresText || "",
         chapterKeywords: author.chapterKeywords || "chapter, lesson",
         customBlockPhrases: author.customBlockPhrases || "",
@@ -140,9 +176,24 @@ export async function GET(req: Request) {
       if (!shareSnapshot.exists()) {
         return NextResponse.json({ error: "Bản ghi chia sẻ không tồn tại hoặc đã bị xóa" }, { status: 404 });
       }
+      const shareVal = shareSnapshot.val();
+      if (shareVal.bookIntroMapJson) {
+        try {
+          shareVal.bookIntroMap = JSON.parse(shareVal.bookIntroMapJson);
+        } catch {
+          // keep fallback rtdb map
+        }
+      }
+      if (shareVal.bookGenresMapJson) {
+        try {
+          shareVal.bookGenresMap = JSON.parse(shareVal.bookGenresMapJson);
+        } catch {
+          // keep fallback rtdb map
+        }
+      }
       return NextResponse.json({
         success: true,
-        share: shareSnapshot.val(),
+        share: shareVal,
       });
     }
 

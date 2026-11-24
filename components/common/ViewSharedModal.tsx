@@ -93,7 +93,23 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
           ) : (
             shares.map((share, idx) => {
               const sharedDate = new Date(share.sharedAt).toLocaleString();
-              const bookIntros = Object.entries(share.bookIntroMap || {});
+              let resolvedIntroMap = share.bookIntroMap || {};
+              if (share.bookIntroMapJson) {
+                try {
+                  resolvedIntroMap = JSON.parse(share.bookIntroMapJson);
+                } catch {
+                  // fallback
+                }
+              }
+              let resolvedGenresMap = share.bookGenresMap || {};
+              if (share.bookGenresMapJson) {
+                try {
+                  resolvedGenresMap = JSON.parse(share.bookGenresMapJson);
+                } catch {
+                  // fallback
+                }
+              }
+              const bookIntros = Object.entries(resolvedIntroMap);
 
               return (
                 <div 
@@ -154,7 +170,7 @@ export const ViewSharedModal: React.FC<ViewSharedModalProps> = ({
                             .filter(Boolean)
                             .map((line: string, bIdx: number) => {
                               const cleanTitle = line.replace(/^\d+\.\s*/, "").trim();
-                              const genresObj = (share.bookGenresMap || {})[cleanTitle] || (share.bookGenresMap || {})[line];
+                              const genresObj = resolvedGenresMap[cleanTitle] || resolvedGenresMap[line];
 
                               return (
                                 <div key={bIdx} className="p-2 rounded-lg bg-gray-50 dark:bg-[#0d1117] border border-gray-100 dark:border-slate-800 space-y-1">

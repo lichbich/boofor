@@ -14,6 +14,10 @@ import { cleanAndFormatHtml, getProcessedHtml } from "@/utils/formatter";
 import {
   ExtractedEpubIntroResult,
   matchEpubToParsedBook,
+  getBookIntroFromMap,
+  getBookGenresFromMap,
+  parseCleanBookTitles,
+  hasNonEmptyHtmlText,
 } from "@/utils/epubIntroExtractor";
 import { exportToWord, exportToPDF, exportToEPUB } from "@/services/exportService";
 import { dbGet, dbSet } from "@/utils/db";
@@ -121,10 +125,21 @@ export const useBookState = () => {
   const authorEditorRestoredRef = useRef(false);
   const isSwitchingTabRef = useRef(false);
   const authorRef = useRef(author);
+  const title1Ref = useRef(title1);
+  const activeTabIdRef = useRef(activeTabId);
+  const editorUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     authorRef.current = author;
   }, [author]);
+
+  useEffect(() => {
+    title1Ref.current = title1;
+  }, [title1]);
+
+  useEffect(() => {
+    activeTabIdRef.current = activeTabId;
+  }, [activeTabId]);
 
   // Initialize from IndexedDB / LocalStorage and migrate old flat state if necessary
   useEffect(() => {
@@ -359,8 +374,9 @@ export const useBookState = () => {
         return;
       }
 
-      if (bookIntroMap[bookName] !== undefined) {
-        setIntroductionText(bookIntroMap[bookName]);
+      const localIntro = getBookIntroFromMap(bookName, bookIntroMap);
+      if (localIntro || bookIntroMap[bookName] !== undefined) {
+        setIntroductionText(localIntro || bookIntroMap[bookName] || "");
       } else {
         // If not in local map, check global map!
         const authorName = (author || "").trim();
@@ -442,6 +458,22 @@ export const useBookState = () => {
         class:
           "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-[60vh] max-h-[70vh] overflow-y-auto p-8 border rounded-md shadow-inner bg-white dark:bg-[#161b22] dark:border-slate-700 font-serif dark:prose-invert",
       },
+    },
+    onUpdate: ({ editor: ed }) => {
+      if (isSwitchingTabRef.current) return;
+      if (editorUpdateTimerRef.current) {
+        clearTimeout(editorUpdateTimerRef.current);
+      }
+      editorUpdateTimerRef.current = setTimeout(() => {
+        if (isSwitchingTabRef.current) return;
+        const currentBook = (title1Ref.current || "").trim();
+        if (!currentBook) return;
+        const html = ed.getHTML();
+        setBookContentMap((prev) => {
+          if (prev[currentBook] === html) return prev;
+          return { ...prev, [currentBook]: html };
+        });
+      }, 300);
     },
   });
 
@@ -1004,17 +1036,78 @@ export const useBookState = () => {
       const html = editor.getHTML();
       const result = cleanAndFormatHtml(html, chapterKeywords, customBlockPhrases);
 
-      setIntroductionText(result.introductionText);
-      const activeBookKey = (title1 || "").trim();
-      if (activeBookKey) {
-        setBookIntroMap((prev) => ({
-          ...prev,
-          [activeBookKey]: result.introductionText,
-        }));
+      let activeBookKey = (title1 || "").trim();
+      if (!activeBookKey && parsedBooks.length === 1) {
+        activeBookKey = parsedBooks[0].title1.trim();
+        setTitle1(activeBookKey);
+      } else if (!activeBookKey && parsedBooks.length > 1) {
+        toast.warning(
+          "Lưu ý: Bạn chưa chọn sách trong Quản lý Danh sách Sách! Hãy chọn cuốn sách đang làm rồi bấm Dọn dẹp & Format để lưu vào sách đó."
+        );
       }
 
+      setIntroductionText(result.introductionText);
       setDetectedChapters(result.detectedChapters);
       editor.commands.setContent(result.cleanedHtml);
+
+      if (activeBookKey) {
+        const nextContentMap = {
+          ...bookContentMap,
+          [activeBookKey]: result.cleanedHtml,
+        };
+        const nextIntroMap = {
+          ...bookIntroMap,
+          [activeBookKey]: result.introductionText,
+        };
+
+        setBookContentMap(nextContentMap);
+        setBookIntroMap(nextIntroMap);
+
+        const currentAuthorEditorHtml = authorEditor ? authorEditor.getHTML() : "";
+        setTabs((prevTabs) => {
+          const updatedTabs = prevTabs.map((t) =>
+            t.id === activeTabId
+              ? {
+                  ...t,
+                  title1: activeBookKey,
+                  introductionText: result.introductionText,
+                  detectedChapters: result.detectedChapters,
+                  editorContent: result.cleanedHtml,
+                  authorEditorContent: currentAuthorEditorHtml,
+                  bookContentMap: nextContentMap,
+                  bookIntroMap: nextIntroMap,
+                }
+              : t
+          );
+          dbSet("bofo_tabs", updatedTabs);
+          return updatedTabs;
+        });
+
+        if (result.introductionText) {
+          const authorName = (author || "").trim();
+          setGlobalBookIntros((prev) => {
+            const next = {
+              ...prev,
+              [`${authorName}::${activeBookKey}`]: result.introductionText,
+              [`::${activeBookKey}`]: result.introductionText,
+            };
+            dbSet("bofo_globalBookIntros", next);
+            try {
+              localStorage.setItem("bofo_globalBookIntros", JSON.stringify(next));
+            } catch (e) {
+              console.error("Failed to save globalBookIntros to localStorage", e);
+            }
+            return next;
+          });
+        }
+      }
+
+      if (!hasNonEmptyHtmlText(result.introductionText)) {
+        toast.warning(
+          "Đã dọn dẹp & format nhưng chưa tìm thấy phần Introduction để trích xuất. Vui lòng kiểm tra tiêu đề Introduction!"
+        );
+      }
+
       setIsFormatting(false);
     }, 100);
   };
@@ -1305,32 +1398,214 @@ export const useBookState = () => {
     }
   };
 
+  // Consolidate a tab's live state and auto-recover any intros from global cache or book contents before sharing
+  const prepareTabForShare = (targetTab?: AuthorTab | null): AuthorTab | null => {
+    if (!targetTab) return null;
+
+    const isCurrentActive = targetTab.id === activeTabId;
+    const effAuthor = (isCurrentActive ? author : targetTab.author) || "";
+    const effTitle1 = (isCurrentActive ? title1 : targetTab.title1) || "";
+    const effTitle2 = (isCurrentActive ? title2 : targetTab.title2) || "";
+    const effBookListText = (isCurrentActive ? bookListText : targetTab.bookListText) || "";
+    const effGenresText = (isCurrentActive ? genresText : targetTab.genresText) || "";
+    const effChapterKeywords =
+      (isCurrentActive ? chapterKeywords : targetTab.chapterKeywords) || "chapter, lesson";
+    const effCustomPhrases =
+      (isCurrentActive ? customBlockPhrases : targetTab.customBlockPhrases) || "";
+    const effAuthorInfo = isCurrentActive
+      ? (authorEditor ? authorEditor.getHTML() : authorInfoMap[effAuthor] || targetTab.authorEditorContent || "")
+      : targetTab.authorEditorContent || authorInfoMap[effAuthor] || "";
+
+    const rawIntroMap: Record<string, string> = {
+      ...(targetTab.bookIntroMap || {}),
+      ...(isCurrentActive ? bookIntroMap : {}),
+    };
+    if (isCurrentActive && effTitle1.trim() && hasNonEmptyHtmlText(introductionText)) {
+      rawIntroMap[effTitle1.trim()] = introductionText;
+    }
+
+    const rawContentMap: Record<string, string> = {
+      ...(targetTab.bookContentMap || {}),
+      ...(isCurrentActive ? bookContentMap : {}),
+    };
+    if (isCurrentActive && effTitle1.trim() && editor) {
+      const liveHtml = editor.getHTML();
+      if (hasNonEmptyHtmlText(liveHtml)) {
+        rawContentMap[effTitle1.trim()] = liveHtml;
+      }
+    }
+
+    const rawGenresMap: Record<string, BookCategoryData> = {
+      ...(targetTab.bookGenresMap || {}),
+      ...(isCurrentActive ? bookGenresMap : {}),
+    };
+
+    const cleanBooks = parseCleanBookTitles(effBookListText);
+    const cleanIntroMap: Record<string, string> = {};
+    const cleanGenresMap: Record<string, BookCategoryData> = {};
+    const trimmedAuthor = effAuthor.trim();
+
+    // Carry over existing valid entries (excluding empty key "")
+    Object.entries(rawIntroMap).forEach(([k, v]) => {
+      const tk = k.trim();
+      if (tk && hasNonEmptyHtmlText(v)) {
+        cleanIntroMap[tk] = v;
+      }
+    });
+    Object.entries(rawGenresMap).forEach(([k, v]) => {
+      const tk = k.trim();
+      if (tk && v) {
+        cleanGenresMap[tk] = v;
+      }
+    });
+
+    // Ensure every book in bookListText has exact key alignment and fallback recovery
+    for (const bookTitle of cleanBooks) {
+      let intro = getBookIntroFromMap(bookTitle, cleanIntroMap);
+
+      if (!intro) {
+        const gKey = `${trimmedAuthor}::${bookTitle}`;
+        const gFallback = `::${bookTitle}`;
+        intro = globalBookIntros[gKey] || globalBookIntros[gFallback] || "";
+      }
+
+      if (!hasNonEmptyHtmlText(intro)) {
+        const contentHtml =
+          rawContentMap[bookTitle] ||
+          getBookIntroFromMap(bookTitle, rawContentMap);
+        if (hasNonEmptyHtmlText(contentHtml)) {
+          const formatted = cleanAndFormatHtml(
+            contentHtml,
+            effChapterKeywords,
+            effCustomPhrases
+          );
+          if (hasNonEmptyHtmlText(formatted.introductionText)) {
+            intro = formatted.introductionText;
+          }
+        }
+      }
+
+      if (hasNonEmptyHtmlText(intro)) {
+        cleanIntroMap[bookTitle] = intro;
+      }
+
+      const matchedGenres = getBookGenresFromMap(bookTitle, rawGenresMap);
+      if (matchedGenres) {
+        cleanGenresMap[bookTitle] = matchedGenres;
+      }
+    }
+
+    return {
+      ...targetTab,
+      title1: effTitle1,
+      title2: effTitle2,
+      author: effAuthor,
+      bookListText: effBookListText,
+      introductionText: effTitle1.trim() ? cleanIntroMap[effTitle1.trim()] || "" : "",
+      chapterKeywords: effChapterKeywords,
+      genresText: effGenresText,
+      customBlockPhrases: effCustomPhrases,
+      authorEditorContent: effAuthorInfo,
+      bookIntroMap: cleanIntroMap,
+      bookGenresMap: cleanGenresMap,
+      bookContentMap: rawContentMap,
+    };
+  };
+
+  const prepareAllTabsForShare = (): AuthorTab[] => {
+    return tabs
+      .map((t) => prepareTabForShare(t))
+      .filter((t): t is AuthorTab => t !== null);
+  };
+
   const importSharedAuthor = (sharedData: {
     authorName: string;
+    authorInfo?: string;
     bookListText?: string;
     bookIntroMap?: Record<string, string>;
+    bookIntroMapJson?: string;
     bookGenresMap?: Record<string, BookCategoryData>;
+    bookGenresMapJson?: string;
     genresText?: string;
     chapterKeywords?: string;
     customBlockPhrases?: string;
   }) => {
     isSwitchingTabRef.current = true;
 
-    const newId = `tab_${Date.now()}`;
-    const bookList = sharedData.bookListText || "";
-    const parsed = bookList
-      ? bookList
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line.length > 0)
-          .map((line) => {
-            const cleanTitle = line.replace(/^\d+\.\s*/, "");
-            return { title1: cleanTitle, title2: "" };
-          })
-      : [];
+    let incomingIntroMap: Record<string, string> = sharedData.bookIntroMap || {};
+    if (sharedData.bookIntroMapJson) {
+      try {
+        const parsedJson = JSON.parse(sharedData.bookIntroMapJson);
+        if (parsedJson && typeof parsedJson === "object") {
+          incomingIntroMap = { ...incomingIntroMap, ...parsedJson };
+        }
+      } catch (e) {
+        console.error("Failed to parse bookIntroMapJson", e);
+      }
+    }
 
-    const firstBookTitle1 = parsed[0]?.title1 || "";
-    const firstBookIntro = firstBookTitle1 ? (sharedData.bookIntroMap?.[firstBookTitle1] || "") : "";
+    let incomingGenresMap: Record<string, BookCategoryData> = sharedData.bookGenresMap || {};
+    if (sharedData.bookGenresMapJson) {
+      try {
+        const parsedJson = JSON.parse(sharedData.bookGenresMapJson);
+        if (parsedJson && typeof parsedJson === "object") {
+          incomingGenresMap = { ...incomingGenresMap, ...parsedJson };
+        }
+      } catch (e) {
+        console.error("Failed to parse bookGenresMapJson", e);
+      }
+    }
+
+    const newId = `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const bookList = sharedData.bookListText || "";
+    const cleanTitles = parseCleanBookTitles(bookList);
+
+    const reconciledIntroMap: Record<string, string> = {};
+    Object.entries(incomingIntroMap).forEach(([k, v]) => {
+      const tk = k.trim();
+      if (tk && hasNonEmptyHtmlText(v)) {
+        reconciledIntroMap[tk] = v;
+      }
+    });
+    for (const bTitle of cleanTitles) {
+      const matchedIntro = getBookIntroFromMap(bTitle, incomingIntroMap);
+      if (matchedIntro) {
+        reconciledIntroMap[bTitle] = matchedIntro;
+      }
+    }
+
+    const reconciledGenresMap: Record<string, BookCategoryData> = {};
+    Object.entries(incomingGenresMap).forEach(([k, v]) => {
+      const tk = k.trim();
+      if (tk && v) {
+        reconciledGenresMap[tk] = v;
+      }
+    });
+    for (const bTitle of cleanTitles) {
+      const matchedGenre = getBookGenresFromMap(bTitle, incomingGenresMap);
+      if (matchedGenre) {
+        reconciledGenresMap[bTitle] = matchedGenre;
+      }
+    }
+
+    const firstBookTitle1 = cleanTitles[0] || "";
+    const firstBookIntro = firstBookTitle1
+      ? getBookIntroFromMap(firstBookTitle1, reconciledIntroMap)
+      : "";
+
+    const firstBookGenreObj = firstBookTitle1 ? reconciledGenresMap[firstBookTitle1] : undefined;
+    const firstBookGenreLines = firstBookGenreObj
+      ? [firstBookGenreObj.cat1, firstBookGenreObj.cat2, firstBookGenreObj.cat3].filter(
+          (c) => c && c.trim().length > 0
+        )
+      : [];
+    const initialGenresText =
+      firstBookGenreLines.length > 0
+        ? firstBookGenreLines.join("\n")
+        : sharedData.genresText ||
+          "Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks";
+
+    const incomingAuthorInfo = sharedData.authorInfo || "";
 
     const newTab: AuthorTab = {
       id: newId,
@@ -1340,7 +1615,7 @@ export const useBookState = () => {
       bookListText: bookList,
       introductionText: firstBookIntro,
       chapterKeywords: sharedData.chapterKeywords || "chapter, lesson",
-      genresText: sharedData.genresText || "Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks",
+      genresText: initialGenresText,
       customBlockPhrases: sharedData.customBlockPhrases || "",
       splitterInput: "",
       reconcilerRawText: "",
@@ -1350,10 +1625,10 @@ export const useBookState = () => {
       isPromptOpen: true,
       detectedChapters: [],
       editorContent: "",
-      authorEditorContent: "",
-      bookIntroMap: sharedData.bookIntroMap || {},
+      authorEditorContent: incomingAuthorInfo,
+      bookIntroMap: reconciledIntroMap,
       bookContentMap: {},
-      bookGenresMap: sharedData.bookGenresMap || {},
+      bookGenresMap: reconciledGenresMap,
       activeSubTab: "formatter",
     };
 
@@ -1389,8 +1664,43 @@ export const useBookState = () => {
         }
         return t;
       });
-      return [...updated, newTab];
+      const nextAll = [...updated, newTab];
+      dbSet("bofo_tabs", nextAll);
+      dbSet("bofo_activeTabId", newId);
+      return nextAll;
     });
+
+    if (sharedData.authorName && incomingAuthorInfo) {
+      setAuthorInfoMap((prev) => {
+        const next = { ...prev, [sharedData.authorName]: incomingAuthorInfo };
+        try {
+          localStorage.setItem("bofo_authorInfoMap", JSON.stringify(next));
+        } catch (e) {
+          console.error("Failed to save authorInfoMap to localStorage", e);
+        }
+        return next;
+      });
+    }
+
+    const trimmedAuthor = (sharedData.authorName || "").trim();
+    if (Object.keys(reconciledIntroMap).length > 0) {
+      setGlobalBookIntros((prev) => {
+        const next = { ...prev };
+        Object.entries(reconciledIntroMap).forEach(([bTitle, intro]) => {
+          if (bTitle && intro) {
+            next[`${trimmedAuthor}::${bTitle}`] = intro;
+            next[`::${bTitle}`] = intro;
+          }
+        });
+        dbSet("bofo_globalBookIntros", next);
+        try {
+          localStorage.setItem("bofo_globalBookIntros", JSON.stringify(next));
+        } catch (e) {
+          console.error("Failed to save globalBookIntros to localStorage", e);
+        }
+        return next;
+      });
+    }
 
     setTitle1(firstBookTitle1);
     setTitle2("");
@@ -1398,7 +1708,7 @@ export const useBookState = () => {
     setBookListText(bookList);
     setIntroductionText(firstBookIntro);
     setChapterKeywords(sharedData.chapterKeywords || "chapter, lesson");
-    setGenresText(sharedData.genresText || "Language Study / English as a Second Language\nLanguage Study / Multi-Language Phrasebooks");
+    setGenresText(initialGenresText);
     setCustomBlockPhrases(sharedData.customBlockPhrases || "");
     setSplitterInput("");
     setReconcilerRawText("");
@@ -1407,16 +1717,16 @@ export const useBookState = () => {
     setIsBookListOpen(true);
     setIsPromptOpen(true);
     setDetectedChapters([]);
-    setBookIntroMap(sharedData.bookIntroMap || {});
+    setBookIntroMap(reconciledIntroMap);
     setBookContentMap({});
-    setBookGenresMap(sharedData.bookGenresMap || {});
+    setBookGenresMap(reconciledGenresMap);
     setActiveTab("formatter");
 
     if (editor) {
       editor.commands.setContent("");
     }
     if (authorEditor) {
-      authorEditor.commands.setContent("");
+      authorEditor.commands.setContent(incomingAuthorInfo);
     }
 
     setActiveTabId(newId);
@@ -1681,9 +1991,12 @@ export const useBookState = () => {
     addTab,
     deleteTab,
     renameTab,
+    bookIntroMap,
     bookContentMap,
     setBookContentMap,
     selectBook,
+    prepareTabForShare,
+    prepareAllTabsForShare,
     importSharedAuthor,
     addBatchTabs,
   };

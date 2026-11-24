@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, BookOpen, Loader2 } from "lucide-react";
+import { getBookIntroFromMap } from "@/utils/epubIntroExtractor";
 
 interface Book {
   title1: string;
@@ -16,6 +17,7 @@ interface BookListSectionProps {
   handleSelectBook: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   title1: string;
   title2: string;
+  bookIntroMap?: Record<string, string>;
   bookContentMap?: Record<string, string>;
   bookCovers?: Record<string, string>;
   isBatchExporting?: boolean;
@@ -32,6 +34,7 @@ export const BookListSection: React.FC<BookListSectionProps> = ({
   handleSelectBook,
   title1,
   title2,
+  bookIntroMap,
   bookContentMap,
   bookCovers,
   isBatchExporting = false,
@@ -225,15 +228,16 @@ export const BookListSection: React.FC<BookListSectionProps> = ({
           <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-slate-800 rounded-lg p-2 bg-gray-50 dark:bg-[#0d1117]/50 space-y-1">
             {parsedBooks.map((book, idx) => {
               const hasContent = bookContentMap && bookContentMap[book.title1] && bookContentMap[book.title1].replace(/<[^>]*>/g, "").trim().length > 0;
+              const hasIntro = Boolean(getBookIntroFromMap(book.title1, bookIntroMap));
               const hasCover = bookCovers && bookCovers[book.title1];
               const isChecked = selectedBatchTitles.includes(book.title1);
 
               return (
                 <label
                   key={idx}
-                  className="flex items-center justify-between text-xs text-gray-700 dark:text-slate-350 hover:bg-gray-100 dark:hover:bg-slate-800/40 p-1.5 rounded cursor-pointer transition-colors"
+                  className="flex items-center justify-between text-xs hover:bg-gray-100 dark:hover:bg-slate-800/40 p-1.5 rounded cursor-pointer transition-colors"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <input
                       type="checkbox"
                       checked={isChecked}
@@ -244,9 +248,20 @@ export const BookListSection: React.FC<BookListSectionProps> = ({
                             : [...prev, book.title1]
                         );
                       }}
-                      className="rounded text-indigo-600 focus:ring-indigo-500/20 border-gray-300 dark:border-slate-700"
+                      className="rounded text-indigo-600 focus:ring-indigo-500/20 border-gray-300 dark:border-slate-700 shrink-0"
                     />
-                    <span className="truncate max-w-[200px]">
+                    <span
+                      className={`truncate max-w-[200px] transition-colors ${
+                        hasIntro
+                          ? "text-emerald-600 dark:text-emerald-400 font-semibold"
+                          : "text-gray-700 dark:text-slate-300"
+                      }`}
+                      title={
+                        hasIntro
+                          ? `${book.title1} (Đã trích xuất Introduction)`
+                          : `${book.title1} (Chưa có Introduction)`
+                      }
+                    >
                       {idx + 1}. {book.title1}
                     </span>
                   </div>

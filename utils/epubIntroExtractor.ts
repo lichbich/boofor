@@ -73,6 +73,124 @@ export const normalizeBookMatchKey = (str: string): string => {
     .toLowerCase();
 };
 
+export const parseCleanBookTitles = (bookListText?: string): string[] => {
+  if (!bookListText) return [];
+  return bookListText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .filter((title) => title.length > 0);
+};
+
+export const hasNonEmptyHtmlText = (html?: string): boolean => {
+  if (!html) return false;
+  return html.replace(/<[^>]*>/g, "").trim().length > 0;
+};
+
+export const getBookIntroFromMap = (
+  bookTitle: string,
+  bookIntroMap?: Record<string, string>
+): string => {
+  if (!bookTitle || !bookIntroMap) return "";
+  const trimmed = bookTitle.trim();
+
+  if (hasNonEmptyHtmlText(bookIntroMap[trimmed])) {
+    return bookIntroMap[trimmed];
+  }
+  if (hasNonEmptyHtmlText(bookIntroMap[bookTitle])) {
+    return bookIntroMap[bookTitle];
+  }
+
+  const targetKey = normalizeBookMatchKey(trimmed);
+  if (!targetKey) return "";
+
+  for (const [key, val] of Object.entries(bookIntroMap)) {
+    if (!key || !hasNonEmptyHtmlText(val)) continue;
+    if (normalizeBookMatchKey(key) === targetKey) {
+      return val;
+    }
+  }
+
+  return "";
+};
+
+export const getBookGenresFromMap = <T extends { cat1?: string; cat2?: string; cat3?: string }>(
+  bookTitle: string,
+  bookGenresMap?: Record<string, T>
+): T | undefined => {
+  if (!bookTitle || !bookGenresMap) return undefined;
+  const trimmed = bookTitle.trim();
+  if (bookGenresMap[trimmed]) return bookGenresMap[trimmed];
+  if (bookGenresMap[bookTitle]) return bookGenresMap[bookTitle];
+
+  const targetKey = normalizeBookMatchKey(trimmed);
+  if (!targetKey) return undefined;
+
+  for (const [key, val] of Object.entries(bookGenresMap)) {
+    if (!key || !val) continue;
+    if (normalizeBookMatchKey(key) === targetKey) {
+      return val;
+    }
+  }
+  return undefined;
+};
+
+export interface AuthorShareReadiness {
+  isReady: boolean;
+  hasValidAuthor: boolean;
+  totalBooks: number;
+  introCount: number;
+  missingIntroBooks: string[];
+  hasGenres: boolean;
+}
+
+export const checkAuthorShareReadiness = (tabData: {
+  author?: string;
+  bookListText?: string;
+  bookIntroMap?: Record<string, string>;
+  bookGenresMap?: Record<string, { cat1?: string; cat2?: string; cat3?: string }>;
+  genresText?: string;
+}): AuthorShareReadiness => {
+  const authorName = (tabData.author || "").trim();
+  const hasValidAuthor = Boolean(authorName && authorName !== "Tác giả mới");
+  const books = parseCleanBookTitles(tabData.bookListText);
+  const totalBooks = books.length;
+
+  const missingIntroBooks: string[] = [];
+  for (const bookTitle of books) {
+    const intro = getBookIntroFromMap(bookTitle, tabData.bookIntroMap);
+    if (!intro) {
+      missingIntroBooks.push(bookTitle);
+    }
+  }
+
+  const introCount = totalBooks - missingIntroBooks.length;
+  const hasFallbackGenres = Boolean((tabData.genresText || "").trim());
+  const allBooksHaveGenres =
+    totalBooks > 0 &&
+    books.every((b) => {
+      const g = getBookGenresFromMap(b, tabData.bookGenresMap);
+      return Boolean(g && (g.cat1?.trim() || g.cat2?.trim() || g.cat3?.trim()));
+    });
+  const hasGenres = allBooksHaveGenres || hasFallbackGenres;
+
+  const isReady =
+    hasValidAuthor &&
+    totalBooks > 0 &&
+    missingIntroBooks.length === 0 &&
+    hasGenres;
+
+  return {
+    isReady,
+    hasValidAuthor,
+    totalBooks,
+    introCount,
+    missingIntroBooks,
+    hasGenres,
+  };
+};
+
 export const matchEpubToParsedBook = <
   T extends { title1: string; title2: string; full: string }
 >(
