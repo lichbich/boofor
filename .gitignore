@@ -42,4 +42,6 @@ next-env.d.ts
 
 # firebase credentials
 /services/privatekey.json
+/firebasekey.json
+/boofor-win/
 
