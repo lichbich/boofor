@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Editor } from "@tiptap/react";
 import { EditorSection } from "../formatter/EditorSection";
-import { IntroExtractorSection } from "../formatter/IntroExtractorSection";
+import {
+  IntroExtractorSection,
+  AnnotatedEpubIntroResult,
+} from "../formatter/IntroExtractorSection";
+import { ExtractedEpubIntroResult } from "@/utils/epubIntroExtractor";
 import { SettingsSection } from "../formatter/SettingsSection";
 import { BookListSection } from "../formatter/BookListSection";
 import { BookCoverSection } from "../formatter/BookCoverSection";
@@ -33,6 +37,10 @@ interface FormatterTabProps {
   introductionText: string;
   copiedId: string | null;
   handleCopy: (text: string, id: string, isHtml?: boolean) => void;
+  onExtractedEpubIntros?: (
+    results: ExtractedEpubIntroResult[]
+  ) => AnnotatedEpubIntroResult[];
+  onPreviewExtractedIntro?: (introHtml: string, targetBookTitle?: string) => void;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
   chapterKeywords: string;
@@ -84,6 +92,8 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
   introductionText,
   copiedId,
   handleCopy,
+  onExtractedEpubIntros,
+  onPreviewExtractedIntro,
   isSettingsOpen,
   setIsSettingsOpen,
   chapterKeywords,
@@ -211,6 +221,8 @@ export const FormatterTab: React.FC<FormatterTabProps> = ({
           introductionText={introductionText}
           copiedId={copiedId}
           handleCopy={handleCopy}
+          onExtractedEpubIntros={onExtractedEpubIntros}
+          onPreviewExtractedIntro={onPreviewExtractedIntro}
         />
 
         <div className="bg-blue-50 text-blue-800 p-4 rounded-xl text-sm leading-relaxed">

@@ -11,6 +11,10 @@ import { TableRow } from "@tiptap/extension-table-row";
 import { Markdown } from "tiptap-markdown";
 import { copyToClipboard } from "@/utils/clipboard";
 import { cleanAndFormatHtml, getProcessedHtml } from "@/utils/formatter";
+import {
+  ExtractedEpubIntroResult,
+  matchEpubToParsedBook,
+} from "@/utils/epubIntroExtractor";
 import { exportToWord, exportToPDF, exportToEPUB } from "@/services/exportService";
 import { dbGet, dbSet } from "@/utils/db";
 import { saveAs } from "file-saver";
@@ -337,10 +341,24 @@ export const useBookState = () => {
     }
   }, [bookIntroMap, author, isMounted]);
 
+  const prevTitle1Ref = useRef(title1);
+
   // Sync Introduction content based on current Title1
   useEffect(() => {
     if (isMounted) {
       const bookName = (title1 || "").trim();
+      const prevBookName = (prevTitle1Ref.current || "").trim();
+      prevTitle1Ref.current = title1;
+
+      if (!bookName) {
+        if (bookIntroMap[""] !== undefined) {
+          setIntroductionText(bookIntroMap[""]);
+        } else if (prevBookName !== "") {
+          setIntroductionText("");
+        }
+        return;
+      }
+
       if (bookIntroMap[bookName] !== undefined) {
         setIntroductionText(bookIntroMap[bookName]);
       } else {
@@ -987,16 +1005,162 @@ export const useBookState = () => {
       const result = cleanAndFormatHtml(html, chapterKeywords, customBlockPhrases);
 
       setIntroductionText(result.introductionText);
-      const activeBookKey = title1 || "";
-      setBookIntroMap((prev) => {
-        const newMap = { ...prev, [activeBookKey]: result.introductionText };
-        return newMap;
-      });
+      const activeBookKey = (title1 || "").trim();
+      if (activeBookKey) {
+        setBookIntroMap((prev) => ({
+          ...prev,
+          [activeBookKey]: result.introductionText,
+        }));
+      }
 
       setDetectedChapters(result.detectedChapters);
       editor.commands.setContent(result.cleanedHtml);
       setIsFormatting(false);
     }, 100);
+  };
+
+  // Apply extracted introductions from one or multiple EPUB files
+  const applyExtractedEpubIntros = (
+    results: ExtractedEpubIntroResult[]
+  ): Array<ExtractedEpubIntroResult & { matchedBookTitle?: string }> => {
+    const annotated: Array<ExtractedEpubIntroResult & { matchedBookTitle?: string }> = results.map((r) => {
+      if (r.status !== "success" || !r.introHtml) {
+        return { ...r };
+      }
+      const matched = matchEpubToParsedBook(r.epubTitle, r.fileName, parsedBooks);
+      if (matched) {
+        return { ...r, matchedBookTitle: matched.title1 };
+      }
+      if (results.length === 1 && title1.trim()) {
+        return { ...r, matchedBookTitle: title1.trim() };
+      }
+      return { ...r };
+    });
+
+    const validItems = annotated.filter((r) => r.status === "success" && r.introHtml);
+    if (validItems.length === 0) {
+      return annotated;
+    }
+
+    const introUpdates: Record<string, string> = {};
+    validItems.forEach((item) => {
+      const targetKey = (
+        item.matchedBookTitle ||
+        item.epubTitle ||
+        item.cleanTitleFromFile
+      ).trim();
+      if (targetKey) {
+        introUpdates[targetKey] = item.introHtml;
+      }
+    });
+
+    let nextSelectedBook: { title1: string; title2: string } | null = null;
+    let nextTitle1IfEmpty: string | null = null;
+    let nextIntroToDisplay = validItems[0].introHtml;
+
+    if (results.length === 1) {
+      const single = validItems[0];
+      if (single.matchedBookTitle) {
+        const foundInList = parsedBooks.find((b) => b.title1 === single.matchedBookTitle);
+        if (foundInList && foundInList.title1 !== title1) {
+          nextSelectedBook = { title1: foundInList.title1, title2: foundInList.title2 };
+        }
+      } else if (!title1.trim() && parsedBooks.length === 0) {
+        const fallbackTitle = (single.epubTitle || single.cleanTitleFromFile).trim();
+        if (fallbackTitle) {
+          nextTitle1IfEmpty = fallbackTitle;
+        }
+      }
+      nextIntroToDisplay = single.introHtml;
+    } else {
+      const currentBookKey = title1.trim();
+      if (currentBookKey && introUpdates[currentBookKey]) {
+        nextIntroToDisplay = introUpdates[currentBookKey];
+      } else {
+        const firstMatchedItem = validItems.find(
+          (item) =>
+            item.matchedBookTitle &&
+            parsedBooks.some((b) => b.title1 === item.matchedBookTitle)
+        );
+        if (!currentBookKey && firstMatchedItem?.matchedBookTitle) {
+          const foundBook = parsedBooks.find(
+            (b) => b.title1 === firstMatchedItem.matchedBookTitle
+          );
+          if (foundBook) {
+            nextSelectedBook = { title1: foundBook.title1, title2: foundBook.title2 };
+            nextIntroToDisplay = firstMatchedItem.introHtml;
+          }
+        } else {
+          nextIntroToDisplay = validItems[0].introHtml;
+        }
+      }
+    }
+
+    if (nextSelectedBook) {
+      selectBook(nextSelectedBook.title1, nextSelectedBook.title2);
+    } else if (nextTitle1IfEmpty) {
+      setTitle1(nextTitle1IfEmpty);
+    }
+
+    setIntroductionText(nextIntroToDisplay);
+
+    setBookIntroMap((prev) => {
+      const updatedMap = { ...prev, ...introUpdates };
+      setTabs((prevTabs) => {
+        const updatedTabs = prevTabs.map((t) =>
+          t.id === activeTabId
+            ? {
+                ...t,
+                title1: nextSelectedBook?.title1 ?? nextTitle1IfEmpty ?? title1,
+                title2: nextSelectedBook?.title2 ?? title2,
+                introductionText: nextIntroToDisplay,
+                bookIntroMap: updatedMap,
+              }
+            : t
+        );
+        dbSet("bofo_tabs", updatedTabs);
+        return updatedTabs;
+      });
+      return updatedMap;
+    });
+
+    const authorName = (author || "").trim();
+    setGlobalBookIntros((prev) => {
+      const next = { ...prev };
+      Object.entries(introUpdates).forEach(([bTitle, intro]) => {
+        if (bTitle && intro) {
+          next[`${authorName}::${bTitle}`] = intro;
+          next[`::${bTitle}`] = intro;
+        }
+      });
+      dbSet("bofo_globalBookIntros", next);
+      try {
+        localStorage.setItem("bofo_globalBookIntros", JSON.stringify(next));
+      } catch (e) {
+        console.error("Failed to save globalBookIntros to localStorage", e);
+      }
+      return next;
+    });
+
+    return annotated;
+  };
+
+  const previewExtractedEpubIntro = (
+    introHtml: string,
+    targetBookTitle?: string
+  ) => {
+    if (targetBookTitle) {
+      const foundBook = parsedBooks.find((b) => b.title1 === targetBookTitle);
+      if (foundBook) {
+        selectBook(foundBook.title1, foundBook.title2);
+        setIntroductionText(introHtml);
+        return;
+      }
+      if (parsedBooks.length === 0) {
+        setTitle1(targetBookTitle);
+      }
+    }
+    setIntroductionText(introHtml);
   };
 
   // Word document export triggers
@@ -1478,6 +1642,8 @@ export const useBookState = () => {
     handleSelectBookByIndex,
     handleCopy,
     formatContent,
+    applyExtractedEpubIntros,
+    previewExtractedEpubIntro,
     triggerExportWord,
     triggerExportPDF,
     triggerExportEPUB,

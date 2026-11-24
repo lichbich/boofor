@@ -723,6 +723,8 @@ export default function Home() {
                 introductionText={state.introductionText}
                 copiedId={state.copiedId}
                 handleCopy={state.handleCopy}
+                onExtractedEpubIntros={state.applyExtractedEpubIntros}
+                onPreviewExtractedIntro={state.previewExtractedEpubIntro}
                 isSettingsOpen={state.isSettingsOpen}
                 setIsSettingsOpen={state.setIsSettingsOpen}
                 chapterKeywords={state.chapterKeywords}
